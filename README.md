@@ -30,38 +30,88 @@ deterministic, auditable verification.
 
 ---
 
-## Install
-
-**Chrome extension** — load unpacked from `apps/extension/dist`:
+## Quick Start
 
 ```bash
-pnpm install && pnpm --filter @bifrost/extension build
-# then chrome://extensions -> Developer mode on -> Load unpacked -> apps/extension/dist
+# Install (local, v0.1 — npm publish coming with v0.2)
+pnpm install
+pnpm --filter bifrost build
+npm link apps/cli
+
+# Start the local verification API in another terminal
+pnpm --filter cosmic-lite dev
+
+# Verify
+bifrost verify "The capital of France is Paris."
 ```
 
-**CLI** — link locally for now (npm publish coming with v0.2):
+> **AI generates. BIFROST verifies.**
+> Put a verification layer between AI output and action.
+
+### Pipe AI output
 
 ```bash
-pnpm install && pnpm --filter bifrost build && npm link apps/cli
-bifrost verify "your AI output here"
+openclaw     | bifrost verify
+claude-code  | bifrost verify
+codex        | bifrost verify
 ```
 
-**VS Code extension** — verify-on-save with debounce + content-hash dedupe:
+Real example, end-to-end:
 
 ```bash
-pnpm --filter bifrost-vscode build
-# then in VS Code: Run > Run Extension on apps/vscode/
+$ echo "function divide(a, b) { return a / b; }" | bifrost verify
+
+[APPROVED 0.85]
+PULSAR found:
+  - EDGE_CASE_FAILURE: division without zero check
 ```
 
-**API** — run cosmic-lite locally; the extension and CLI both default to
-`http://localhost:8787/verify`:
+> **Note.** This example reads `APPROVED` rather than `REJECTED` because v0.1
+> ships uncalibrated QUASAR weights — a single PULSAR finding only deducts
+> 0.15. The finding is correct and visible; the score is awaiting calibration.
+> See [§ 8.1 — Uncalibrated QUASAR baseline](#81--uncalibrated-quasar-baseline).
+
+### Chrome extension
 
 ```bash
-pnpm --filter @bifrost/cosmic-lite dev
+pnpm --filter @bifrost/extension build
+```
+
+Then in Chrome: `chrome://extensions` → Developer Mode on → **Load unpacked** → `apps/extension/dist`.
+
+### VS Code extension
+
+Open the repo in VS Code, press **F5** to launch the extension host, then run:
+
+```
+BIFROST: Verify current document
+```
+
+### API
+
+By default, BIFROST runs against the local COSMIC-lite server. Start it with:
+
+```bash
+pnpm --filter cosmic-lite dev
+```
+
+The endpoint defaults to `http://localhost:8787/verify`. Direct shape:
+
+```bash
 curl -s -X POST http://localhost:8787/verify \
   -H 'content-type: application/json' \
   -d '{"output":"AI text to verify"}' | jq
 ```
+
+### Notes
+
+- **v0.1 has no authentication layer.** The COSMIC-lite endpoint is open to
+  anything that can reach it. Authentication is on the v0.2 roadmap; for now,
+  do not expose your local API to the public internet.
+- Verification runs locally or against your configured endpoint.
+- Scoring is **baseline (uncalibrated)** — see § 8.1 before reading absolute
+  numbers as anything but ordinal.
+- **PULSAR findings are advisory**, not authoritative — see § 8.3.
 
 ---
 
