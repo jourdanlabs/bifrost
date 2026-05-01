@@ -1,0 +1,13 @@
+{
+  "name": "bifrost",
+  "private": true,
+  "version": "0.1.0",
+  "description": "AI generates. BIFROST verifies.",
+  "scripts": {
+    "build": "pnpm -r build",
+    "dev:api": "pnpm --filter @bifrost/cosmic-lite dev",
+    "dev:cli": "pnpm --filter @bifrost/cli dev",
+    "test": "pnpm -r test"
+  },
+  "packageManager": "pnpm@9.0.0"
+}
