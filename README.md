@@ -1,33 +1,93 @@
-# BIFROST v0.1
+<p align="center">
+  <img src="./assets/bifrost-hero.png" alt="BIFROST — Universal AI Verification Layer" width="100%" />
+</p>
 
-> "AI generates. BIFROST verifies."
+<h1 align="center">BIFROST</h1>
 
-A universal AI verification layer. Intercepts AI outputs, runs COSMIC-lite
-validation (with tiny PULSAR), and returns a real-time verdict in <200ms.
+<p align="center"><strong>AI generates. BIFROST verifies.</strong></p>
+<p align="center"><em>Universal AI verification layer. Built by JourdanLabs.</em></p>
 
-## Architecture
+<p align="center">
+  <img src="https://img.shields.io/badge/version-v0.1-7c3aed" alt="v0.1" />
+  <img src="https://img.shields.io/badge/tests-9%2F9_passing-22c55e" alt="9/9 tests passing" />
+  <img src="https://img.shields.io/badge/p95_latency-0.36ms-22c55e" alt="p95 latency 0.36ms" />
+  <img src="https://img.shields.io/badge/budget-150ms-6b7280" alt="150ms budget" />
+  <img src="https://img.shields.io/badge/license-MIT-6b7280" alt="MIT" />
+</p>
 
+---
+
+## What it does
+
+BIFROST sits between any AI and the user. It runs a deterministic six-engine
+pipeline against AI outputs and returns one of three verdicts: `APPROVED`,
+`LOW_CONFIDENCE`, or `REJECTED`. Verdicts arrive in well under 150ms with
+full reasoning attached, so you can ship AI features without trusting the
+model blind.
+
+No databases. No multi-pass reasoning. No heavy LLM calls. Just fast,
+deterministic, auditable verification.
+
+---
+
+## Install
+
+**Chrome extension** — load unpacked from `apps/extension/dist`:
+
+```bash
+pnpm install && pnpm --filter @bifrost/extension build
+# then chrome://extensions -> Developer mode on -> Load unpacked -> apps/extension/dist
 ```
-[ AI Tool (ChatGPT / Claude / Codex / OpenClaw) ]
-                  |
-        [ BIFROST EDGE (Extension / CLI) ]
-                  |
-            POST -> /verify (API)
-                  |
-         [ Verdict + Findings JSON ]
-                  |
-          [ Overlay injected to UI ]
+
+**CLI** — link locally for now (npm publish coming with v0.2):
+
+```bash
+pnpm install && pnpm --filter @bifrost/cli build && npm link apps/cli
+bifrost verify "your AI output here"
 ```
 
-## Latency contract (non-negotiable)
+**API** — run cosmic-lite locally; the extension and CLI both default to
+`http://localhost:8787/verify`:
+
+```bash
+pnpm --filter @bifrost/cosmic-lite dev
+curl -s -X POST http://localhost:8787/verify \
+  -H 'content-type: application/json' \
+  -d '{"output":"AI text to verify"}' | jq
+```
+
+---
+
+## The COSMIC-lite pipeline
+
+Every request flows through six engines in strict order. Each engine has its
+own latency budget; a verdict is the composition of all six.
+
+| Engine | Job | What it produces |
+| ------ | --- | ---------------- |
+| **ASTRAL** | Normalize input | Cleaned text with code blocks preserved |
+| **METEOR** | Extract claims | Code blocks, numbers, strong assertions |
+| **NEBULA** | Detect uncertainty | Contradiction / ambiguity / missing-qualifier signals |
+| **PULSAR-Lite** | Adversarial probe | Up to 3 findings (edge case / contradiction / overconfidence) |
+| **QUASAR** | Score | Confidence in [0, 1] |
+| **AURORA** | Final verdict | `APPROVED` / `LOW_CONFIDENCE` / `REJECTED` |
+
+The pipeline is deterministic: the same input produces the same verdict and
+the same findings. No model in the loop, no flake.
+
+---
+
+## Latency budget
+
+The contract: every request fits inside 150ms. We measure and publish.
 
 | Layer          | Budget   | Measured p95 (v0.1) |
 | -------------- | -------- | ------------------- |
-| API total      | <=150ms  | **0.36ms**          |
+| **API total**  | **<=150ms** | **0.36ms**       |
 | ASTRAL         | 10ms     | 0.05ms              |
 | METEOR         | 25ms     | 0.03ms              |
 | NEBULA         | 40ms     | 0.26ms              |
-| PULSAR-lite    | 25ms     | 0.01ms              |
+| PULSAR-Lite    | 25ms     | 0.01ms              |
 | QUASAR         | 5ms      | 0.00ms              |
 | AURORA         | 5ms      | 0.00ms              |
 | I/O overhead   | 30-40ms  | (transport)         |
@@ -36,10 +96,152 @@ validation (with tiny PULSAR), and returns a real-time verdict in <200ms.
 
 Measured over 1000 pipeline runs across five sample shapes (clean prose,
 overconfident prose, code without guards, complexity contradiction, long
-ramble) on Apple Silicon. Reproduce with `pnpm --filter @bifrost/cosmic-lite bench`.
+ramble). Reproduce with:
 
-> Any engine exceeding budget must be simplified or removed. v0.1 is well
-> under budget across the board, which gives v0.2 calibration room to spend.
+```bash
+pnpm --filter @bifrost/cosmic-lite bench
+```
+
+This isn't bragging. It's the contract. Any engine that exceeds its budget
+must be simplified or removed.
+
+---
+
+## Methodology disclosures
+
+We publish honest limitations. The disclosures below are load-bearing — they
+tell you what a v0.1 verdict does and does not mean. They are not legal
+cover.
+
+### 8.1 — Uncalibrated QUASAR baseline
+
+BIFROST v0.1 ships with **un-calibrated QUASAR weights**:
+
+- `BASE_WEIGHT_U` (uncertainty weight) = `0.4`
+- `BASE_WEIGHT_P` (PULSAR finding weight) = `0.15`
+
+These are baseline values, not tuned thresholds. Override at runtime via
+environment variables read in [services/cosmic-lite/src/engines/quasar.ts](services/cosmic-lite/src/engines/quasar.ts):
+
+```bash
+BIFROST_WEIGHT_U=0.5 BIFROST_WEIGHT_P=0.25 \
+  pnpm --filter @bifrost/cosmic-lite dev
+```
+
+**v0.2 will calibrate against a sealed, SHA-published labeled response
+corpus with reproducible methodology.** Until then, treat absolute scores as
+ordinal, not metric.
+
+### 8.2 — NEBULA absolute-language heuristic
+
+When **>=2 absolute-language tokens** ("always", "never", "guaranteed",
+"every", ...) appear with **0 hedging qualifiers** ("may", "might",
+"sometimes", ...), NEBULA bumps the `missing_qualifiers` signal. This is a
+heuristic, not semantic understanding. It will false-fire on short,
+genuinely-absolute claims (`1 + 1 always equals 2`) and false-miss when
+hedges and absolutes coexist in the same passage.
+
+**v0.2 will replace this with calibrated linguistic modeling** trained on
+the sealed corpus.
+
+### 8.3 — PULSAR-Lite is advisory, not authoritative
+
+> Job: poke lies
+> Hobby: breaking things (gently)
+
+PULSAR-Lite is a regex-based heuristic, not a code analyzer. Each rule is a
+fixed pattern — no AST, no symbol table, no execution model:
+
+- **EDGE_CASE_FAILURE** flags code with input parameters but no recognizable
+  guard idiom. Will false-fire on terse correct code (e.g. simple functions
+  without explicit input guards) and false-miss on unusual guard idioms.
+- **CONTRADICTION_SNAP** matches a fixed pair-list (O(1) vs O(n), always vs
+  sometimes, immutable vs mutate, thread-safe vs race condition).
+- **OVERCONFIDENCE** counts strong-assertion words and fires only when
+  NEBULA's qualifier count is exactly zero.
+
+**v0.2 PULSAR will integrate AST-level reasoning** for code findings and
+corpus-trained signals for prose findings. Treat v0.1 PULSAR findings as
+**advisory, not authoritative**.
+
+> Don't worry, he's tiny.
+
+---
+
+## Verdict examples
+
+Reproduced from the v0.1 smoke run. Start the API
+(`pnpm --filter @bifrost/cosmic-lite dev`) and follow along.
+
+**Clean code -> APPROVED 1.00**
+
+```bash
+$ bifrost verify "Use Array.prototype.map to transform a list."
+[APPROVED 1.00]
+  - No high-risk signals detected.
+```
+
+**Overconfident prose -> LOW_CONFIDENCE 0.77 + OVERCONFIDENCE finding**
+
+```bash
+$ bifrost verify "This always works perfectly, never fails, and is guaranteed to handle every case."
+[LOW_CONFIDENCE 0.77]
+  - Long output with too few hedging qualifiers (5 expected).
+  - PULSAR-lite raised 1 finding(s).
+
+PULSAR findings:
+  * OVERCONFIDENCE: Output uses 5 absolute assertions (e.g. always/never/guaranteed) with no hedging.
+    impact: High risk of confident-but-wrong output; downstream users will not double-check.
+```
+
+**Contradictory text -> LOW_CONFIDENCE 0.73 + CONTRADICTION_SNAP finding**
+
+```bash
+$ echo "Lookups are O(1) but iterating to find a key is O(n)." | bifrost verify
+[LOW_CONFIDENCE 0.73]
+  - Detected 1 contradiction signal(s).
+  - PULSAR-lite raised 1 finding(s).
+
+PULSAR findings:
+  * CONTRADICTION_SNAP: Claims O(1) while also describing higher complexity.
+    impact: The two claims cannot both be true; downstream consumers will misinterpret.
+```
+
+---
+
+## v0.2 roadmap
+
+- **Calibrated QUASAR weights** — sealed corpus, SHA-published, reproducible
+  calibration script committed to the repo
+- **AST-level PULSAR reasoning** — replace edge-case regex heuristic with
+  real syntactic analysis for the languages we care about
+- **Streaming verdict support** — provisional verdicts mid-stream; today the
+  adapters are completed-only
+- **Provider adapter expansion** — beyond OpenAI / Anthropic / generic; add
+  Gemini, Mistral, local-LLM front-ends
+- **SDKs** — TypeScript and Python, once the API contract is locked
+
+---
+
+## Positioning
+
+BIFROST is one of three layers in the JourdanLabs trust architecture:
+
+- **COSMIC** — the substrate (deterministic multi-engine reasoning)
+- **OMNIS KEY** — the internal runtime (JL-native agent OS)
+- **BIFROST** — the external verification layer (any AI's outputs)
+
+Both OMNIS KEY and BIFROST are built on COSMIC. OMNIS KEY hosts JourdanLabs
+agents natively. BIFROST verifies outputs from any AI system regardless of
+where it runs.
+
+### RAVEN
+
+RAVEN validates **memory before** agent reasoning. BIFROST validates **AI
+output after** generation. Different layers, complementary. Run both for
+serious agent deployments.
+
+---
 
 ## Repo layout
 
@@ -53,144 +255,14 @@ bifrost/
     cosmic-lite/   /verify API
   packages/
     types/         Shared TS types
+  assets/          README hero + preview
 ```
 
-## Quick start
+## License
 
-```bash
-pnpm install
-pnpm --filter @bifrost/types build
-pnpm --filter @bifrost/cosmic-lite dev      # http://localhost:8787/verify
-pnpm --filter @bifrost/cli build
-node apps/cli/dist/index.js verify "Always returns null."
-```
+MIT. See [LICENSE](LICENSE).
 
-## Engines (strict order)
+## Built by
 
-ASTRAL -> METEOR -> NEBULA -> PULSAR-lite -> QUASAR -> AURORA
-
-- **ASTRAL** normalizes whitespace and formatting
-- **METEOR** extracts code blocks, numerical claims, strong assertions
-- **NEBULA** scores uncertainty (contradictions, ambiguity, missing qualifiers)
-- **PULSAR-lite** at most 3 findings, ~25ms: edge-case probe, contradiction
-  snap, conditional overconfidence
-- **QUASAR** scores `1 - U*0.4 - P*0.15` (uncalibrated baseline)
-- **AURORA** verdict: APPROVED >=0.80, LOW_CONFIDENCE >=0.60, else REJECTED
-
-Quasar weights are uncalibrated baselines. v0.2 will calibrate against a
-sealed, SHA-published corpus.
-
-## Constraints
-
-- No databases
-- No multi-pass reasoning
-- No heavy LLM calls
-- PULSAR stays tiny
-- Latency budget enforced
-- Ugly > perfect
-
-## v0.1 implementation notes
-
-These are intentional deviations or limitations in the v0.1 baseline. They're
-documented so anyone reading scores knows what they do and don't mean.
-
-### Uncalibrated QUASAR baseline weights
-
-QUASAR runs `score = 1 - U*0.4 - P*0.15` with the spec defaults. These are
-**uncalibrated baseline values**, not tuned thresholds. With the default
-weights a single PULSAR finding alone deducts only 0.15, leaving 0.85 — which
-would be APPROVED. That is by design at v0.1: scoring is the lever we expect
-to move once we have labeled data. Override at runtime via:
-
-```
-BIFROST_WEIGHT_U=0.5 BIFROST_WEIGHT_P=0.25 pnpm --filter @bifrost/cosmic-lite dev
-```
-
-### NEBULA absolute-language heuristic
-
-To make overconfidence-shaped outputs land in `LOW_CONFIDENCE` under the
-uncalibrated weights, NEBULA contributes to `missing_qualifiers` when **>=2
-absolute words** ("always", "never", "guaranteed", ...) appear with **zero
-hedging qualifiers**. This is a heuristic stand-in for "the answer reads
-absolute despite covering uncertain ground." It will false-fire on short,
-genuinely-absolute claims (e.g. "1 + 1 always equals 2") and false-miss when
-hedges and absolutes coexist in the same passage. Calibration in v0.2 should
-either learn this signal or replace it.
-
-The OVERCONFIDENCE PULSAR rule itself uses the literal `qualifiers` count
-exposed by NEBULA — i.e. zero qualifier *words*, per spec — not the derived
-`missing_qualifiers` signal.
-
-### PULSAR-Lite (tiny edition)
-
-> Job: poke lies
-> Hobby: breaking things (gently)
-
-PULSAR-Lite is a fast adversarial probe that runs in ~25ms and surfaces
-potential failure modes in AI output.
-
-It is intentionally small in scope:
-
-- max 3 findings
-- regex-based heuristics
-- no deep code analysis
-
-It will:
-
-- catch obvious edge cases
-- flag contradictions
-- highlight overconfident reasoning
-
-It will also:
-
-- false-fire on simple, correct code
-- miss complex or unconventional patterns
-
-Don't worry, he's tiny.
-
-**Treat PULSAR-Lite findings as advisory, not authoritative.**
-
-#### Regex-based limitations
-
-Each rule is a regex / substring heuristic, not real analysis:
-
-- **EDGE_CASE_FAILURE** triggers on code blocks that take inputs but contain
-  no recognizable guard idiom (`if (!`, `=== null`, `try {`, `?.`, etc.).
-  Will false-fire on terse correct code that uses uncommon guards or
-  type-system guarantees; will false-miss on guards expressed in patterns
-  outside the recognized set. **False-fires on simple correct code are an
-  expected v0.1 behavior, not a bug.** AST-level reasoning belongs in v0.2.
-- **CONTRADICTION_SNAP** matches a fixed pair-list (O(1) vs O(n), always vs
-  sometimes, immutable vs mutate, thread-safe vs race condition). Anything
-  outside that list is invisible to it.
-- **OVERCONFIDENCE** counts strong-assertion words from a fixed list and
-  fires only when NEBULA's qualifier count is exactly zero.
-
-These are deliberately mechanical. The v0.2 plan replaces the heuristics
-with AST-level reasoning where applicable and corpus-trained signals
-elsewhere; the contract (`PulsarFinding[]` with `type`, `description`,
-`impact`) is stable across both implementations.
-
-### v0.2 calibration corpus roadmap
-
-- **Labeled response corpus.** Assemble (output, expected_verdict) pairs
-  covering the three categories PULSAR cares about plus clean controls.
-  Sourced from real AI outputs across providers and verticals, hand-labeled.
-- **Sealed + SHA-published.** Freeze the corpus as an immutable artifact;
-  publish its SHA-256 in the repo so any score quoted by BIFROST can be
-  traced back to the exact set it was calibrated against.
-- **Reproducible calibration process.** Calibration is a script in this
-  repo, not a one-off notebook. Anyone can re-run it against the sealed
-  corpus and get bit-identical weights.
-- Sweep `BASE_WEIGHT_U`, `BASE_WEIGHT_P`, and the AURORA thresholds against
-  the corpus; record per-cell precision / recall.
-- Replace the NEBULA absolute-language heuristic with whatever the corpus
-  shows is actually predictive — keep it only if it pulls weight. Same bar
-  applies to each PULSAR rule.
-- Ship calibrated defaults in v0.2 and keep the env-var overrides for
-  per-deployment tuning.
-
-## RAVEN relationship
-
-RAVEN validates **memory before** agent reasoning. BIFROST validates **AI
-output after** generation. Different layers, complementary. Run both.
+[JourdanLabs](https://jourdanlabs.com/bifrost) ·
+[github.com/jourdanlabs/bifrost](https://github.com/jourdanlabs/bifrost)
