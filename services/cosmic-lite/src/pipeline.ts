@@ -1,9 +1,10 @@
 // COSMIC-lite pipeline.
 // Strict order: ASTRAL -> METEOR -> NEBULA -> PULSAR-lite -> QUASAR -> AURORA.
 
-import type { BifrostResponse, BifrostRequest } from "@bifrost/types";
+import type { BifrostResponse, BifrostRequest, MeteorClaims } from "@bifrost/types";
 import { astralNormalize } from "./engines/astral";
 import { meteorExtract } from "./engines/meteor";
+import { bareCodeBlock } from "./engines/bare-code";
 import { nebulaScore } from "./engines/nebula";
 import { pulsarLite } from "./engines/pulsar";
 import { quasarScore } from "./engines/quasar";
@@ -64,7 +65,14 @@ export function runPipeline(req: BifrostRequest): PipelineResult {
   const normalized = astralNormalize(req.output ?? "");
   const t1 = nowMs();
 
-  const meteor = meteorExtract(normalized);
+  const meteorRaw = meteorExtract(normalized);
+  // Bare-code overlay: when CLI input is piped from another tool, raw source
+  // arrives without fences. meteor-bare.ts sits beside METEOR and supplies
+  // the synthesized code block so PULSAR's edge-case probe still runs.
+  const bareBlocks = bareCodeBlock(normalized, meteorRaw.code_blocks.length);
+  const meteor: MeteorClaims = bareBlocks
+    ? { ...meteorRaw, code_blocks: bareBlocks }
+    : meteorRaw;
   const t2 = nowMs();
 
   const nebula = nebulaScore(normalized);

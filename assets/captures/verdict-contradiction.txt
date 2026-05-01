@@ -1,0 +1,8 @@
+=== 3. CONTRADICTORY TEXT ===
+[LOW_CONFIDENCE 0.73]
+  - Detected 1 contradiction signal(s).
+  - PULSAR-lite raised 1 finding(s).
+
+PULSAR findings:
+  * CONTRADICTION_SNAP: Claims O(1) while also describing higher complexity.
+    impact: The two claims cannot both be true; downstream consumers will misinterpret.

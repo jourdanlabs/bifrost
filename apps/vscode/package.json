@@ -1,0 +1,73 @@
+{
+  "name": "bifrost-vscode",
+  "displayName": "BIFROST",
+  "description": "Verify AI-generated code on save. AI generates. BIFROST verifies.",
+  "version": "0.1.0",
+  "publisher": "jourdanlabs",
+  "private": true,
+  "engines": { "vscode": "^1.85.0" },
+  "main": "./dist/extension.js",
+  "categories": ["Other"],
+  "activationEvents": ["onStartupFinished"],
+  "contributes": {
+    "commands": [
+      {
+        "command": "bifrost.verifyCurrent",
+        "title": "BIFROST: Verify current document"
+      },
+      {
+        "command": "bifrost.toggleOnSave",
+        "title": "BIFROST: Toggle verify-on-save"
+      }
+    ],
+    "configuration": {
+      "title": "BIFROST",
+      "properties": {
+        "bifrost.endpoint": {
+          "type": "string",
+          "default": "http://localhost:8787/verify",
+          "description": "COSMIC-lite /verify endpoint."
+        },
+        "bifrost.verifyOnSave": {
+          "type": "boolean",
+          "default": true,
+          "description": "Run BIFROST verification on file save (debounced)."
+        },
+        "bifrost.debounceMs": {
+          "type": "number",
+          "default": 1500,
+          "minimum": 1000,
+          "maximum": 5000,
+          "description": "Debounce window for verify-on-save (1000-5000ms)."
+        },
+        "bifrost.include": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": ["**/*.{ts,tsx,js,jsx,py,go,rs,java,cs,rb,md,txt}"],
+          "description": "Glob patterns of files to verify."
+        },
+        "bifrost.exclude": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": ["**/node_modules/**", "**/dist/**", "**/build/**", "**/.git/**"],
+          "description": "Glob patterns to skip."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "dev": "node scripts/build.mjs --watch",
+    "test": "node --test --import tsx ./src/__tests__/*.test.ts"
+  },
+  "dependencies": {
+    "@bifrost/types": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/vscode": "^1.85.0",
+    "esbuild": "^0.21.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.4.0"
+  }
+}

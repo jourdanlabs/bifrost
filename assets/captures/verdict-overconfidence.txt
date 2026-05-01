@@ -1,0 +1,8 @@
+=== 2. OVERCONFIDENT PROSE ===
+[LOW_CONFIDENCE 0.77]
+  - Long output with too few hedging qualifiers (5 expected).
+  - PULSAR-lite raised 1 finding(s).
+
+PULSAR findings:
+  * OVERCONFIDENCE: Output uses 5 absolute assertions (e.g. always/never/guaranteed) with no hedging.
+    impact: High risk of confident-but-wrong output; downstream users will not double-check.

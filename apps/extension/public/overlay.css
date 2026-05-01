@@ -37,15 +37,31 @@
   color: #9b1c1c;
   border-color: #f8b4b4;
 }
+/* UNVERIFIED — transient, "verification in progress". Yellow/warning hue. */
+.bifrost-badge.bifrost-unverified,
 .bifrost-badge.bifrost-pending {
-  background: #e5e7eb;
-  color: #374151;
-  border-color: #d1d5db;
+  background: #fef3c7;
+  color: #78350f;
+  border-color: #fcd34d;
 }
+.bifrost-badge.bifrost-unverified .bifrost-dot,
+.bifrost-badge.bifrost-pending .bifrost-dot {
+  animation: bifrost-pulse 900ms ease-in-out infinite;
+}
+@keyframes bifrost-pulse {
+  0%, 100% { opacity: 0.4; }
+  50%      { opacity: 1; }
+}
+
+/* UNAVAILABLE — neutral, NOT a verdict on the AI output. Distinct from
+   REJECTED so users don't read "BIFROST can't reach the API" as
+   "the AI output is suspicious". */
+.bifrost-badge.bifrost-unavailable,
 .bifrost-badge.bifrost-error {
   background: #f3f4f6;
-  color: #6b7280;
-  border-color: #e5e7eb;
+  color: #4b5563;
+  border-color: #d1d5db;
+  border-style: dashed;
 }
 
 .bifrost-dot {

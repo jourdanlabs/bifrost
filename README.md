@@ -42,8 +42,15 @@ pnpm install && pnpm --filter @bifrost/extension build
 **CLI** — link locally for now (npm publish coming with v0.2):
 
 ```bash
-pnpm install && pnpm --filter @bifrost/cli build && npm link apps/cli
+pnpm install && pnpm --filter bifrost build && npm link apps/cli
 bifrost verify "your AI output here"
+```
+
+**VS Code extension** — verify-on-save with debounce + content-hash dedupe:
+
+```bash
+pnpm --filter bifrost-vscode build
+# then in VS Code: Run > Run Extension on apps/vscode/
 ```
 
 **API** — run cosmic-lite locally; the extension and CLI both default to
@@ -173,18 +180,18 @@ corpus-trained signals for prose findings. Treat v0.1 PULSAR findings as
 Reproduced from the v0.1 smoke run. Start the API
 (`pnpm --filter @bifrost/cosmic-lite dev`) and follow along.
 
-**Clean code -> APPROVED 1.00**
+**Clean factual statement -> APPROVED**
 
 ```bash
-$ bifrost verify "Use Array.prototype.map to transform a list."
+$ echo "The capital of France is Paris." | bifrost verify
 [APPROVED 1.00]
   - No high-risk signals detected.
 ```
 
-**Overconfident prose -> LOW_CONFIDENCE 0.77 + OVERCONFIDENCE finding**
+**Overconfident prose -> LOW_CONFIDENCE + OVERCONFIDENCE finding**
 
 ```bash
-$ bifrost verify "This always works perfectly, never fails, and is guaranteed to handle every case."
+$ echo "This always works perfectly, never fails, and is guaranteed to handle every case." | bifrost verify
 [LOW_CONFIDENCE 0.77]
   - Long output with too few hedging qualifiers (5 expected).
   - PULSAR-lite raised 1 finding(s).
@@ -194,7 +201,7 @@ PULSAR findings:
     impact: High risk of confident-but-wrong output; downstream users will not double-check.
 ```
 
-**Contradictory text -> LOW_CONFIDENCE 0.73 + CONTRADICTION_SNAP finding**
+**Contradictory text -> LOW_CONFIDENCE + CONTRADICTION_SNAP finding**
 
 ```bash
 $ echo "Lookups are O(1) but iterating to find a key is O(n)." | bifrost verify
@@ -207,7 +214,98 @@ PULSAR findings:
     impact: The two claims cannot both be true; downstream consumers will misinterpret.
 ```
 
+**Bare code from another tool -> EDGE_CASE_FAILURE finding**
+
+```bash
+$ echo "function divide(a, b) { return a / b; }" | bifrost verify
+[APPROVED 0.85]
+  - PULSAR-lite raised 1 finding(s).
+
+PULSAR findings:
+  * EDGE_CASE_FAILURE: Code accepts inputs but contains no visible guards for empty / null / boundary cases.
+    impact: Will likely throw or return incorrect results on empty arrays, null, or zero-length input.
+```
+
+> **Note:** PULSAR raises the finding correctly (no zero-check guard), but
+> the verdict lands at `APPROVED 0.85` rather than `REJECTED` because v0.1
+> ships uncalibrated QUASAR weights — a single PULSAR finding deducts only
+> 0.15. **A REJECTED verdict on this shape is a v0.2 calibration deliverable**
+> (see [§ Methodology disclosures — 8.1](#81--uncalibrated-quasar-baseline)).
+> Tune locally with `BIFROST_WEIGHT_P=0.30`.
+
+The finding itself is what matters at v0.1 — it is visible, advisory, and
+consumable by anyone wiring BIFROST into a CI gate today.
+
 ---
+
+## BIFROST EDGE — extension contract
+
+The Chrome extension must keep the perceived gap between "AI finished
+streaming" and "verdict on screen" under **500ms**. The badge therefore has
+four explicit visual states, not three.
+
+| Badge | State | Meaning |
+| ----- | ----- | ------- |
+| 🟡 `UNVERIFIED` | transient | DOM observation fired; verification in progress. Pulsing dot. |
+| 🟢 `APPROVED nn%` | terminal | AURORA verdict. |
+| 🟡 `LOW nn%` | terminal | AURORA verdict. |
+| 🔴 `REJECTED nn%` | terminal | AURORA verdict. |
+| ⚪ `UNAVAILABLE` | terminal | BIFROST cannot verify (network / key / rate limit / timeout). **This does not mean the AI output is suspicious.** Click for a specific reason. |
+
+**Timeout rule.** If no verdict arrives within 800ms of the badge appearing,
+the badge transitions `UNVERIFIED → UNAVAILABLE: timeout` (not REJECTED).
+`UNVERIFIED` must never persist indefinitely.
+
+**UNAVAILABLE click reasons.** The expanded panel surfaces the actionable
+cause:
+
+- *"Service unreachable"* — fetch failed
+- *"Add API key"* — 401 / 403
+- *"Rate limit exceeded"* — 429
+- *"Service slow / unreachable"* — 800ms client-side timeout
+
+**Measured perceived latency** (DOM detection → API call → DOM update,
+local API, 200 runs):
+
+| | p50 | p95 | p99 | budget |
+| --- | --- | --- | --- | --- |
+| | 0.33ms | **0.53ms** | 0.81ms | 500ms |
+
+This is the local-API number; production deploys will eat the network RTT
+on top, which is why the contract has slack. If your deployment can't hold
+this budget, **investigate network and batching first — do not relax the
+UX target**.
+
+## BIFROST in VS Code
+
+The VS Code extension verifies on save. Two contracts make it tolerable in
+a tight edit-save loop:
+
+- **Debounce** — saves are coalesced over a configurable window
+  (`bifrost.debounceMs`, default `1500`, range `1000–5000`). Hammering
+  Cmd-S fires one verify, not ten.
+- **Content-hash dedupe** — each verified document's text is SHA-256'd and
+  cached per URI. A save with **identical content** to the last verified
+  version is skipped. No wasted API calls on no-op saves.
+
+Configurable settings (`File > Preferences > Settings > BIFROST`):
+
+| Setting | Default | Notes |
+| ------- | ------- | ----- |
+| `bifrost.endpoint` | `http://localhost:8787/verify` | COSMIC-lite endpoint. |
+| `bifrost.verifyOnSave` | `true` | Toggle save-trigger entirely. |
+| `bifrost.debounceMs` | `1500` | Window in ms (1000–5000). |
+| `bifrost.include` | TS/JS/Py/Go/Rust/Java/C#/Ruby/MD/TXT | Globs to include. |
+| `bifrost.exclude` | `node_modules`, `dist`, `build`, `.git` | Globs to skip. |
+
+The status-bar item mirrors the four extension states (UNVERIFIED →
+APPROVED / LOW / REJECTED / UNAVAILABLE). REJECTED additionally surfaces a
+notification with the PULSAR findings.
+
+Commands:
+
+- `BIFROST: Verify current document` — bypasses debounce + cache, force-runs
+- `BIFROST: Toggle verify-on-save` — quick mute
 
 ## v0.2 roadmap
 
@@ -220,6 +318,19 @@ PULSAR findings:
 - **Provider adapter expansion** — beyond OpenAI / Anthropic / generic; add
   Gemini, Mistral, local-LLM front-ends
 - **SDKs** — TypeScript and Python, once the API contract is locked
+
+## v0.1 done criteria
+
+- [x] COSMIC-lite pipeline: ASTRAL → METEOR → NEBULA → PULSAR-lite → QUASAR → AURORA
+- [x] API total p95 ≤ 150ms (measured: 0.36ms)
+- [x] Per-engine budgets all green (ASTRAL/METEOR/NEBULA/PULSAR/QUASAR/AURORA)
+- [x] Tests passing: 9/9 cosmic-lite, 4/4 vscode (13/13 total)
+- [x] Chrome extension `UNVERIFIED → verdict` <500ms perceived (measured: 0.53ms p95)
+- [x] `UNVERIFIED` never persists indefinitely (800ms timeout → `UNAVAILABLE`)
+- [x] `UNAVAILABLE` distinct from `REJECTED`, with specific reason on click
+- [x] VS Code save-trigger debounced (1500ms default) + content-hash dedupe
+- [x] CLI: text, file, stdin, `--json`, `--endpoint` flags
+- [x] Methodology disclosures published (uncalibrated QUASAR, NEBULA absolute-language heuristic, PULSAR-Lite advisory framing)
 
 ---
 

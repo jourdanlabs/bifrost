@@ -18,19 +18,31 @@ chrome.runtime.onMessage.addListener((msg: VerifyRequest, _sender, sendResponse)
         sendResponse({ ok: false, error: "disabled" });
         return;
       }
-      const res = await fetch(cfg.endpoint, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ output: msg.output, input: msg.input }),
-      });
+      // Match the extension's <500ms perceived budget: cap fetch at ~700ms
+      // so the edge has slack to render before its own 800ms timer fires.
+      const ctrl = new AbortController();
+      const fetchTimer = setTimeout(() => ctrl.abort(), 700);
+      let res: Response;
+      try {
+        res = await fetch(cfg.endpoint, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ output: msg.output, input: msg.input }),
+          signal: ctrl.signal,
+        });
+      } finally {
+        clearTimeout(fetchTimer);
+      }
       if (!res.ok) {
-        sendResponse({ ok: false, error: `HTTP ${res.status}` });
+        sendResponse({ ok: false, error: `HTTP ${res.status}`, status: res.status });
         return;
       }
       const json = await res.json();
-      sendResponse({ ok: true, data: json });
+      sendResponse({ ok: true, data: json, status: res.status });
     } catch (e) {
-      sendResponse({ ok: false, error: (e as Error).message });
+      const err = e as Error;
+      const isAbort = err.name === "AbortError";
+      sendResponse({ ok: false, error: isAbort ? "timeout" : err.message });
     }
   })();
   return true; // keep channel open for async response
