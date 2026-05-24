@@ -5,6 +5,7 @@
   "description": "AI generates. BIFROST verifies. Real-time verdict overlay on AI responses.",
   "permissions": ["storage", "activeTab"],
   "host_permissions": [
+    "<all_urls>",
     "https://chat.openai.com/*",
     "https://chatgpt.com/*",
     "https://claude.ai/*",

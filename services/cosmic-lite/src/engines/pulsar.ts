@@ -130,8 +130,9 @@ function contradictionSnap(text: string): PulsarFinding | null {
 
 function overconfidence(meteor: MeteorClaims, nebula: NebulaResult): PulsarFinding | null {
   const strong = meteor.strong_assertions.length;
+  const denseAbsoluteSignal = strong >= 5;
   const unsupportedAbsoluteSignal = strong >= 3 || nebula.signals.missing_qualifiers >= 2;
-  if (unsupportedAbsoluteSignal && nebula.signals.qualifiers === 0) {
+  if (denseAbsoluteSignal || (unsupportedAbsoluteSignal && nebula.signals.qualifiers === 0)) {
     return {
       type: "OVERCONFIDENCE",
       description: `Output uses ${strong} absolute assertions (e.g. always/never/guaranteed) with no hedging.`,

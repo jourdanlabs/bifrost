@@ -31,6 +31,16 @@ test("percentage absolute claims count as overconfidence", () => {
   assert.notEqual(response.verdict, "APPROVED");
 });
 
+test("dense absolute claims stay low confidence even with unrelated qualifiers", () => {
+  const { response } = runPipeline({
+    output:
+      "This will definitely always work 100% of the time, never fail, and is guaranteed to be correct for every user. This answer is intentionally overconfident so BIFROST should flag it.",
+  });
+  const types = response.pulsar_findings.map((f) => f.type);
+  assert.ok(types.includes("OVERCONFIDENCE"), `expected OVERCONFIDENCE, got ${types}`);
+  assert.notEqual(response.verdict, "APPROVED");
+});
+
 test("code with no guards -> EDGE_CASE_FAILURE", () => {
   const { response } = runPipeline({
     output:
