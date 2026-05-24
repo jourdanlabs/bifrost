@@ -5,7 +5,7 @@
 // prose inside likely chat containers) and only emit each one once after a
 // significant idle period.
 
-import { cleanResponseText, latestUserPromptBefore } from "./dom";
+import { cleanResponseText, isLikelyUserPromptNode, latestUserPromptBefore } from "./dom";
 import { Adapter, ResponseTarget } from "./types";
 
 const SETTLED_MS = 2000;
@@ -16,8 +16,12 @@ const HINTS = [
   '[role="log"] > *',
   ".message",
   ".assistant",
+  ".answer",
   ".ai-response",
+  ".response",
   ".chat-message",
+  ".markdown-body",
+  ".prose",
   '[data-role="assistant"]',
   '[data-testid*="assistant"]',
   '[data-testid*="answer"]',
@@ -35,7 +39,7 @@ export const genericAdapter: Adapter = {
       for (const h of HINTS) {
         document.querySelectorAll<HTMLElement>(h).forEach((el) => set.add(el));
       }
-      return [...set];
+      return [...set].filter((node) => !isLikelyUserPromptNode(node));
     }
 
     function check() {
