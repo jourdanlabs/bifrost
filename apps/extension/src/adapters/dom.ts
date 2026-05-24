@@ -12,6 +12,8 @@ const USER_PROMPT_SELECTORS = [
   '[class*="user-query" i]',
   '[class*="query-text" i]',
 ];
+const USER_MARKER_ATTRS = ["data-message-author-role", "data-role", "data-testid", "aria-label"];
+const USER_MARKER_RE = /\b(user|human)\b|user-query|query-text|user-message|human-message/i;
 
 export function cleanResponseText(node: HTMLElement): string {
   const clone = node.cloneNode(true) as HTMLElement;
@@ -21,6 +23,22 @@ export function cleanResponseText(node: HTMLElement): string {
 
 export function hasVisibleText(node: HTMLElement, minLength = 1): boolean {
   return cleanResponseText(node).length >= minLength;
+}
+
+export function isLikelyUserPromptNode(node: HTMLElement): boolean {
+  let current: HTMLElement | null = node;
+  while (current && current !== document.body) {
+    const tag = current.tagName.toLowerCase();
+    if (tag === "user-query") return true;
+    const className = typeof current.className === "string" ? current.className : "";
+    if (USER_MARKER_RE.test(className)) return true;
+    for (const attr of USER_MARKER_ATTRS) {
+      const value = current.getAttribute(attr);
+      if (value && USER_MARKER_RE.test(value)) return true;
+    }
+    current = current.parentElement;
+  }
+  return false;
 }
 
 export function latestUserPromptBefore(target: HTMLElement): string | undefined {

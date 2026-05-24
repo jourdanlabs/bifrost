@@ -6,6 +6,7 @@
 //   - 800ms hard timeout: UNVERIFIED -> UNAVAILABLE (not REJECTED)
 
 import type { Adapter, ResponseTarget } from "./adapters/types";
+import { isLikelyUserPromptNode } from "./adapters/dom";
 import {
   renderUnverified,
   renderVerdict,
@@ -83,9 +84,15 @@ function clearStaleOverlays(): void {
     .forEach((el) => el.removeAttribute("data-bifrost-attached"));
 }
 
+function sameNormalizedText(a: string | undefined, b: string | undefined): boolean {
+  if (!a || !b) return false;
+  return a.replace(/\s+/g, " ").trim() === b.replace(/\s+/g, " ").trim();
+}
+
 export function startEdge(adapter: Adapter): void {
   clearStaleOverlays();
   adapter.attach(async (target: ResponseTarget) => {
+    if (isLikelyUserPromptNode(target.host) || sameNormalizedText(target.input, target.text)) return;
     const signature = `${target.text.length}:${target.text.slice(0, 80)}:${target.text.slice(-80)}`;
     if (verified.get(target.id) === signature) return;
     const key = signatureKey(signature);
