@@ -9,6 +9,7 @@
 import type { BifrostResponse, Verdict } from "@bifrost/types";
 
 const BADGE_ATTR = "data-bifrost-attached";
+const STRIP_ATTR = "data-bifrost-strip";
 
 export type UnavailableReason =
   | "service_unreachable"
@@ -64,8 +65,25 @@ export function ensureHost(host: HTMLElement): void {
   }
 }
 
-export function renderUnverified(host: HTMLElement, id: string): HTMLElement {
+function ensureStrip(host: HTMLElement): HTMLElement {
   ensureHost(host);
+  const existing = host.querySelector<HTMLElement>(`:scope > [${STRIP_ATTR}="1"]`);
+  if (existing) return existing;
+
+  const strip = document.createElement("div");
+  strip.className = "bifrost-strip";
+  strip.setAttribute(STRIP_ATTR, "1");
+  strip.setAttribute("aria-label", "BIFROST verification controls");
+  host.insertBefore(strip, host.firstChild);
+  return strip;
+}
+
+function panelHostFor(badge: HTMLElement, host: HTMLElement): HTMLElement {
+  return badge.closest<HTMLElement>(`[${STRIP_ATTR}="1"]`) ?? host;
+}
+
+export function renderUnverified(host: HTMLElement, id: string): HTMLElement {
+  const strip = ensureStrip(host);
   const existing = host.querySelector<HTMLElement>(`[data-bifrost-id="${id}"]`);
   if (existing) return existing;
   const badge = document.createElement("span");
@@ -74,7 +92,7 @@ export function renderUnverified(host: HTMLElement, id: string): HTMLElement {
   badge.setAttribute("data-bifrost-state", "unverified");
   badge.innerHTML = `<span class="bifrost-dot"></span>UNVERIFIED`;
   badge.title = "Verification in progress";
-  host.appendChild(badge);
+  strip.appendChild(badge);
   host.setAttribute(BADGE_ATTR, "1");
   return badge;
 }
@@ -123,6 +141,7 @@ export function renderUnavailable(
       panel = null;
       return;
     }
+    const panelHost = panelHostFor(fresh, host);
     panel = document.createElement("div");
     panel.className = "bifrost-panel";
     panel.innerHTML = `
@@ -134,7 +153,7 @@ export function renderUnavailable(
       </p>
       ${copy.cta ? `<div style="margin-top:8px"><code>${escapeHtml(copy.cta)}</code></div>` : ""}
     `;
-    host.appendChild(panel);
+    panelHost.appendChild(panel);
     const dismiss = (ev: MouseEvent) => {
       if (!panel) return;
       if (panel.contains(ev.target as Node) || fresh.contains(ev.target as Node)) return;
@@ -169,7 +188,7 @@ export function renderVerdict(badge: HTMLElement, host: HTMLElement, res: Bifros
       return;
     }
     panel = buildPanel(res);
-    host.appendChild(panel);
+    panelHostFor(fresh, host).appendChild(panel);
     const dismiss = (ev: MouseEvent) => {
       if (!panel) return;
       if (panel.contains(ev.target as Node) || fresh.contains(ev.target as Node)) return;

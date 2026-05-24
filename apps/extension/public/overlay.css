@@ -22,6 +22,29 @@
 }
 .bifrost-badge:hover { transform: translateY(-1px); }
 
+.bifrost-strip {
+  position: relative;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  min-height: 24px;
+  margin: 0 0 8px 0;
+  pointer-events: none;
+}
+.bifrost-strip .bifrost-badge {
+  position: relative;
+  top: auto;
+  right: auto;
+  pointer-events: auto;
+}
+.bifrost-strip .bifrost-panel {
+  top: calc(100% + 6px);
+  right: 0;
+  pointer-events: auto;
+}
+
 .bifrost-badge.bifrost-approved {
   background: #def7ec;
   color: #03543f;

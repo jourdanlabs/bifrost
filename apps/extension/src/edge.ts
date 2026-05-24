@@ -22,6 +22,7 @@ interface VerifyResult {
 
 const UNVERIFIED_TIMEOUT_MS = 800;
 const verified = new Map<string, string>();
+const verifiedBySignature = new Map<string, string>();
 
 async function verify(text: string): Promise<VerifyResult> {
   return new Promise((resolve) => {
@@ -52,14 +53,31 @@ function reasonFromResult(result: VerifyResult): UnavailableReason {
   return "unknown";
 }
 
+function signatureKey(signature: string): string {
+  let hash = 2166136261;
+  for (let i = 0; i < signature.length; i += 1) {
+    hash ^= signature.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(36);
+}
+
+function visibleDuplicateExists(key: string): boolean {
+  return Boolean(document.querySelector(`[data-bifrost-signature="${key}"]`));
+}
+
 export function startEdge(adapter: Adapter): void {
   adapter.attach(async (target: ResponseTarget) => {
     const signature = `${target.text.length}:${target.text.slice(0, 80)}:${target.text.slice(-80)}`;
     if (verified.get(target.id) === signature) return;
+    const key = signatureKey(signature);
+    if (verifiedBySignature.has(key) && visibleDuplicateExists(key)) return;
     verified.set(target.id, signature);
+    verifiedBySignature.set(key, target.id);
 
     const t0 = performance.now();
     const badge = renderUnverified(target.host, target.id);
+    badge.setAttribute("data-bifrost-signature", key);
 
     let timedOut = false;
     const timer = window.setTimeout(() => {

@@ -12,6 +12,18 @@ const ASSISTANT_SELECTORS = [
 
 const STABILITY_MS = 900;
 
+function sameAnswerSurface(parent: HTMLElement, child: HTMLElement): boolean {
+  const parentText = cleanResponseText(parent);
+  const childText = cleanResponseText(child);
+  if (childText.length < 24 || parentText.length < childText.length) return false;
+
+  const sample = childText.slice(0, Math.min(180, childText.length));
+  if (!parentText.includes(sample)) return false;
+
+  const extra = parentText.length - childText.length;
+  return extra <= Math.max(240, childText.length * 0.25);
+}
+
 export const geminiAdapter: Adapter = {
   name: "gemini",
   attach(onTarget) {
@@ -23,7 +35,13 @@ export const geminiAdapter: Adapter = {
       for (const selector of ASSISTANT_SELECTORS) {
         document.querySelectorAll<HTMLElement>(selector).forEach((node) => set.add(node));
       }
-      return [...set].filter((node) => cleanResponseText(node).length >= 24);
+      const nodes = [...set].filter((node) => cleanResponseText(node).length >= 24);
+      return nodes.filter(
+        (node) =>
+          !nodes.some(
+            (other) => other !== node && other.contains(node) && sameAnswerSurface(other, node)
+          )
+      );
     }
 
     function check() {
