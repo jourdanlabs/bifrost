@@ -58,6 +58,17 @@ function buildReasons(opts: {
   return reasons;
 }
 
+function capScoreForFindings(score: number, findings: ReturnType<typeof pulsarLite>): number {
+  const types = new Set(findings.map((finding) => finding.type));
+  if (types.has("EDGE_CASE_FAILURE") || types.has("CONTRADICTION_SNAP")) {
+    return Math.min(score, 0.59);
+  }
+  if (types.has("OVERCONFIDENCE")) {
+    return Math.min(score, 0.79);
+  }
+  return score;
+}
+
 export function runPipeline(req: BifrostRequest): PipelineResult {
   const start = nowMs();
 
@@ -81,7 +92,7 @@ export function runPipeline(req: BifrostRequest): PipelineResult {
   const findings = pulsarLite(normalized, meteor, nebula);
   const t4 = nowMs();
 
-  const score = quasarScore(nebula.uncertainty_score, findings);
+  const score = capScoreForFindings(quasarScore(nebula.uncertainty_score, findings), findings);
   const t5 = nowMs();
 
   const verdict = auroraVerdict(score);

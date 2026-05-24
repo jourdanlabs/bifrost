@@ -22,6 +22,15 @@ test("overconfident absolute claims -> not APPROVED, fires PULSAR overconfidence
   assert.notEqual(response.verdict, "APPROVED");
 });
 
+test("percentage absolute claims count as overconfidence", () => {
+  const { response } = runPipeline({
+    output: "This will definitely always work 100% of the time.",
+  });
+  const types = response.pulsar_findings.map((f) => f.type);
+  assert.ok(types.includes("OVERCONFIDENCE"), `expected OVERCONFIDENCE, got ${types}`);
+  assert.notEqual(response.verdict, "APPROVED");
+});
+
 test("code with no guards -> EDGE_CASE_FAILURE", () => {
   const { response } = runPipeline({
     output:
@@ -29,6 +38,7 @@ test("code with no guards -> EDGE_CASE_FAILURE", () => {
   });
   const types = response.pulsar_findings.map((f) => f.type);
   assert.ok(types.includes("EDGE_CASE_FAILURE"), `expected EDGE_CASE_FAILURE, got ${types}`);
+  assert.equal(response.verdict, "REJECTED");
 });
 
 test("contradiction triggers CONTRADICTION_SNAP", () => {
@@ -37,6 +47,16 @@ test("contradiction triggers CONTRADICTION_SNAP", () => {
   });
   const types = response.pulsar_findings.map((f) => f.type);
   assert.ok(types.includes("CONTRADICTION_SNAP"), `expected CONTRADICTION_SNAP, got ${types}`);
+  assert.equal(response.verdict, "REJECTED");
+});
+
+test("approval contradiction triggers CONTRADICTION_SNAP", () => {
+  const { response } = runPipeline({
+    output: "The report is approved and rejected at the same time.",
+  });
+  const types = response.pulsar_findings.map((f) => f.type);
+  assert.ok(types.includes("CONTRADICTION_SNAP"), `expected CONTRADICTION_SNAP, got ${types}`);
+  assert.equal(response.verdict, "REJECTED");
 });
 
 test("PULSAR returns at most 3 findings", () => {

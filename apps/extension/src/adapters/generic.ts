@@ -5,6 +5,7 @@
 // prose inside likely chat containers) and only emit each one once after a
 // significant idle period.
 
+import { cleanResponseText } from "./dom";
 import { Adapter, ResponseTarget } from "./types";
 
 const SETTLED_MS = 2000;
@@ -18,6 +19,9 @@ const HINTS = [
   ".ai-response",
   ".chat-message",
   '[data-role="assistant"]',
+  '[data-testid*="assistant"]',
+  '[data-testid*="answer"]',
+  '[data-testid*="response"]',
 ];
 
 export const genericAdapter: Adapter = {
@@ -37,7 +41,7 @@ export const genericAdapter: Adapter = {
     function check() {
       const now = Date.now();
       for (const node of candidates()) {
-        const text = (node.textContent ?? "").trim();
+        const text = cleanResponseText(node);
         if (text.length < MIN_TEXT_LEN) continue;
         const prior = seen.get(node);
         if (!prior || prior.text !== text) {

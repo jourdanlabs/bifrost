@@ -8,7 +8,15 @@
     "https://chat.openai.com/*",
     "https://chatgpt.com/*",
     "https://claude.ai/*",
-    "http://localhost/*"
+    "https://gemini.google.com/*",
+    "https://aistudio.google.com/*",
+    "https://grok.com/*",
+    "https://*.grok.com/*",
+    "https://perplexity.ai/*",
+    "https://www.perplexity.ai/*",
+    "https://copilot.microsoft.com/*",
+    "http://localhost/*",
+    "http://127.0.0.1/*"
   ],
   "background": {
     "service_worker": "background.js",
@@ -27,7 +35,14 @@
       "matches": [
         "https://chat.openai.com/*",
         "https://chatgpt.com/*",
-        "https://claude.ai/*"
+        "https://claude.ai/*",
+        "https://gemini.google.com/*",
+        "https://aistudio.google.com/*",
+        "https://grok.com/*",
+        "https://*.grok.com/*",
+        "https://perplexity.ai/*",
+        "https://www.perplexity.ai/*",
+        "https://copilot.microsoft.com/*"
       ],
       "js": ["content.js"],
       "css": ["overlay.css"],
@@ -38,7 +53,14 @@
       "exclude_matches": [
         "https://chat.openai.com/*",
         "https://chatgpt.com/*",
-        "https://claude.ai/*"
+        "https://claude.ai/*",
+        "https://gemini.google.com/*",
+        "https://aistudio.google.com/*",
+        "https://grok.com/*",
+        "https://*.grok.com/*",
+        "https://perplexity.ai/*",
+        "https://www.perplexity.ai/*",
+        "https://copilot.microsoft.com/*"
       ],
       "js": ["content-generic.js"],
       "css": ["overlay.css"],

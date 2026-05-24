@@ -60,7 +60,10 @@ export function meteorExtract(text: string): MeteorClaims {
         idx = lower.indexOf(w, idx + w.length);
       }
     } else {
-      const re = new RegExp(`\\b${w}\\b`, "g");
+      const escaped = w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const re = /[A-Za-z0-9_]/u.test(w.at(-1) ?? "")
+        ? new RegExp(`\\b${escaped}\\b`, "g")
+        : new RegExp(`\\b${escaped}`, "g");
       const matches = lower.match(re);
       if (matches) strong_assertions.push(...matches);
     }

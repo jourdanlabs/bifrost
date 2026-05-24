@@ -1,43 +1,45 @@
-// Anthropic / Claude.ai adapter.
-
 import { cleanResponseText } from "./dom";
 import { Adapter, ResponseTarget } from "./types";
 
-// Claude renders assistant messages with [data-test-render-count] on
-// streaming text, and `data-is-streaming` toggles while a response is live.
-// Selectors are best-effort and may need updating if the UI changes.
-const ASSISTANT_SELECTOR = '[data-testid="conversation-turn-assistant"], [data-is-streaming]';
-const STABILITY_MS = 800;
+const ASSISTANT_SELECTORS = [
+  "message-content",
+  ".model-response-text",
+  ".response-container",
+  "[data-response-index]",
+  "[data-test-id='response-text']",
+  "[data-testid='response-text']",
+];
 
-export const anthropicAdapter: Adapter = {
-  name: "anthropic",
+const STABILITY_MS = 900;
+
+export const geminiAdapter: Adapter = {
+  name: "gemini",
   attach(onTarget) {
     const seen = new WeakMap<HTMLElement, { text: string; settledAt: number }>();
     let timer: number | null = null;
 
-    function isStreaming(node: HTMLElement): boolean {
-      const v = node.getAttribute("data-is-streaming");
-      return v === "true";
+    function candidates(): HTMLElement[] {
+      const set = new Set<HTMLElement>();
+      for (const selector of ASSISTANT_SELECTORS) {
+        document.querySelectorAll<HTMLElement>(selector).forEach((node) => set.add(node));
+      }
+      return [...set].filter((node) => cleanResponseText(node).length >= 24);
     }
 
     function check() {
-      const nodes = document.querySelectorAll<HTMLElement>(ASSISTANT_SELECTOR);
       const now = Date.now();
-      nodes.forEach((node) => {
-        const streaming = isStreaming(node);
+      for (const node of candidates()) {
         const text = cleanResponseText(node);
-        if (!text) return;
         const prior = seen.get(node);
         if (!prior || prior.text !== text) {
           seen.set(node, { text, settledAt: now });
-          return;
+          continue;
         }
-        if (streaming) return;
-        if (now - prior.settledAt < STABILITY_MS) return;
-        const id = node.id || `claude-${prior.settledAt}`;
+        if (now - prior.settledAt < STABILITY_MS) continue;
+        const id = node.id || node.getAttribute("data-response-index") || `gemini-${prior.settledAt}`;
         const target: ResponseTarget = { id, host: node, text, streaming: false };
         onTarget(target);
-      });
+      }
     }
 
     const observer = new MutationObserver(() => {
@@ -45,10 +47,10 @@ export const anthropicAdapter: Adapter = {
       timer = window.setTimeout(() => {
         timer = null;
         check();
-      }, 200);
+      }, 250);
     });
     observer.observe(document.body, { subtree: true, childList: true, characterData: true });
-    const interval = window.setInterval(check, 1000);
+    const interval = window.setInterval(check, 1200);
 
     return () => {
       observer.disconnect();

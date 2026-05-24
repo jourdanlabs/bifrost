@@ -1,37 +1,42 @@
-// OpenAI / ChatGPT adapter.
-// Watches for assistant message turns and reports finalized text.
-
 import { cleanResponseText } from "./dom";
 import { Adapter, ResponseTarget } from "./types";
 
-const ASSISTANT_SELECTOR = '[data-message-author-role="assistant"]';
-const STREAM_INDICATOR = ".result-streaming";
-const STABILITY_MS = 700;
+const ASSISTANT_SELECTORS = [
+  '[data-testid="answer"]',
+  '[data-testid="thread-answer"]',
+  ".prose",
+  '[class*="answer"]',
+];
 
-export const openaiAdapter: Adapter = {
-  name: "openai",
+const STABILITY_MS = 900;
+
+export const perplexityAdapter: Adapter = {
+  name: "perplexity",
   attach(onTarget) {
     const seen = new WeakMap<HTMLElement, { text: string; settledAt: number }>();
     let timer: number | null = null;
 
+    function candidates(): HTMLElement[] {
+      const set = new Set<HTMLElement>();
+      for (const selector of ASSISTANT_SELECTORS) {
+        document.querySelectorAll<HTMLElement>(selector).forEach((node) => set.add(node));
+      }
+      return [...set].filter((node) => cleanResponseText(node).length >= 50);
+    }
+
     function check() {
-      const nodes = document.querySelectorAll<HTMLElement>(ASSISTANT_SELECTOR);
       const now = Date.now();
-      nodes.forEach((node) => {
-        const streaming = !!node.querySelector(STREAM_INDICATOR);
+      for (const node of candidates()) {
         const text = cleanResponseText(node);
-        if (!text) return;
         const prior = seen.get(node);
         if (!prior || prior.text !== text) {
           seen.set(node, { text, settledAt: now });
-          return;
+          continue;
         }
-        if (streaming) return;
-        if (now - prior.settledAt < STABILITY_MS) return;
-        const id = node.getAttribute("data-message-id") ?? `oai-${prior.settledAt}`;
-        const target: ResponseTarget = { id, host: node, text, streaming: false };
-        onTarget(target);
-      });
+        if (now - prior.settledAt < STABILITY_MS) continue;
+        const id = node.id || `perplexity-${prior.settledAt}`;
+        onTarget({ id, host: node, text, streaming: false });
+      }
     }
 
     const observer = new MutationObserver(() => {
@@ -39,11 +44,10 @@ export const openaiAdapter: Adapter = {
       timer = window.setTimeout(() => {
         timer = null;
         check();
-      }, 200);
+      }, 250);
     });
     observer.observe(document.body, { subtree: true, childList: true, characterData: true });
-
-    const interval = window.setInterval(check, 1000);
+    const interval = window.setInterval(check, 1200);
 
     return () => {
       observer.disconnect();

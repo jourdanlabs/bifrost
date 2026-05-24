@@ -9,7 +9,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/version-v0.1-7c3aed" alt="v0.1" />
-  <img src="https://img.shields.io/badge/tests-9%2F9_passing-22c55e" alt="9/9 tests passing" />
+  <img src="https://img.shields.io/badge/tests-16%2F16_passing-22c55e" alt="16/16 tests passing" />
   <img src="https://img.shields.io/badge/p95_latency-0.36ms-22c55e" alt="p95 latency 0.36ms" />
   <img src="https://img.shields.io/badge/budget-150ms-6b7280" alt="150ms budget" />
   <img src="https://img.shields.io/badge/license-MIT-6b7280" alt="MIT" />
@@ -32,17 +32,37 @@ deterministic, auditable verification.
 
 ## Quick Start
 
+One-command local install:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/jourdanlabs/bifrost/main/install.sh | bash
+```
+
+This clones BIFROST to `~/.bifrost`, builds the local verifier, starts the
+COSMIC-lite service on `http://127.0.0.1:8787/verify` on macOS, and builds
+the Chrome extension at:
+
+```text
+~/.bifrost/apps/extension/dist
+```
+
+Load the extension in Chrome with `chrome://extensions` -> Developer Mode ->
+**Load unpacked** -> select that `dist` folder.
+
+Manual developer setup:
+
 ```bash
 # Install (local, v0.1 — npm publish coming with v0.2)
 pnpm install
-pnpm --filter bifrost build
-npm link apps/cli
+pnpm --filter @bifrost/cosmic-lite build
+pnpm --filter @bifrost/extension build
+pnpm --dir apps/cli build
 
 # Start the local verification API in another terminal
-pnpm --filter cosmic-lite dev
+pnpm --filter @bifrost/cosmic-lite dev
 
 # Verify
-bifrost verify "The capital of France is Paris."
+node apps/cli/dist/index.js verify "The capital of France is Paris."
 ```
 
 > **AI generates. BIFROST verifies.**
@@ -78,6 +98,9 @@ pnpm --filter @bifrost/extension build
 ```
 
 Then in Chrome: `chrome://extensions` → Developer Mode on → **Load unpacked** → `apps/extension/dist`.
+
+Dedicated adapters are included for ChatGPT, Claude, Gemini, Grok, and
+Perplexity, with a generic fallback for other AI chat UIs.
 
 ### VS Code extension
 
@@ -374,7 +397,7 @@ Commands:
 - [x] COSMIC-lite pipeline: ASTRAL → METEOR → NEBULA → PULSAR-lite → QUASAR → AURORA
 - [x] API total p95 ≤ 150ms (measured: 0.36ms)
 - [x] Per-engine budgets all green (ASTRAL/METEOR/NEBULA/PULSAR/QUASAR/AURORA)
-- [x] Tests passing: 9/9 cosmic-lite, 4/4 vscode (13/13 total)
+- [x] Tests passing: 16/16 cosmic-lite
 - [x] Chrome extension `UNVERIFIED → verdict` <500ms perceived (measured: 0.53ms p95)
 - [x] `UNVERIFIED` never persists indefinitely (800ms timeout → `UNAVAILABLE`)
 - [x] `UNAVAILABLE` distinct from `REJECTED`, with specific reason on click

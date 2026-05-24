@@ -65,6 +65,12 @@ const AMBIGUITY = [
 const CONTRADICTION_PAIRS: Array<[RegExp, RegExp, string]> = [
   [/\balways\b/i, /\bsometimes\b|\boccasionally\b|\brarely\b/i, "always vs sometimes"],
   [/\bnever\b/i, /\bsometimes\b|\boccasionally\b|\boften\b/i, "never vs sometimes"],
+  [/\bapproved\b|\bapproval\b/i, /\brejected\b|\brejection\b/i, "approved vs rejected"],
+  [/\baccepted\b|\bacceptance\b/i, /\bdenied\b|\bdenial\b/i, "accepted vs denied"],
+  [/\btrue\b/i, /\bfalse\b/i, "true vs false"],
+  [/\bvalid\b/i, /\binvalid\b/i, "valid vs invalid"],
+  [/\bopen\b/i, /\bclosed\b/i, "open vs closed"],
+  [/\bcomplete\b|\bcompleted\b/i, /\bincomplete\b|\bnot complete\b/i, "complete vs incomplete"],
   [/\bO\(1\)/i, /\bO\(n\)|\bO\(n\^?2\)|\bO\(log\s*n\)/i, "complexity mismatch"],
   [/\bsynchronous\b/i, /\basynchronous\b|\basync\b/i, "sync vs async"],
   [/\bimmutable\b/i, /\bmutate[ds]?\b|\bmutation\b/i, "immutable vs mutate"],

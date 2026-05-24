@@ -64,6 +64,36 @@ function edgeCaseProbe(meteor: MeteorClaims): PulsarFinding | null {
 
 const CONTRADICTION_SNAPS: Array<{ a: RegExp; b: RegExp; reason: string }> = [
   {
+    a: /\bapproved\b|\bapproval\b/i,
+    b: /\brejected\b|\brejection\b/i,
+    reason: "Claims approval and rejection in the same answer.",
+  },
+  {
+    a: /\baccepted\b|\bacceptance\b/i,
+    b: /\bdenied\b|\bdenial\b/i,
+    reason: "Claims acceptance and denial in the same answer.",
+  },
+  {
+    a: /\btrue\b/i,
+    b: /\bfalse\b/i,
+    reason: "Claims truth and falsity in the same answer.",
+  },
+  {
+    a: /\bvalid\b/i,
+    b: /\binvalid\b/i,
+    reason: "Claims validity and invalidity in the same answer.",
+  },
+  {
+    a: /\bopen\b/i,
+    b: /\bclosed\b/i,
+    reason: "Claims open and closed status in the same answer.",
+  },
+  {
+    a: /\bcomplete\b|\bcompleted\b/i,
+    b: /\bincomplete\b|\bnot complete\b/i,
+    reason: "Claims completion and incompletion in the same answer.",
+  },
+  {
     a: /\bO\(1\)/i,
     b: /\bO\(n\)|\bO\(n\s*\^?\s*2\)|\bO\(log\s*n\)/i,
     reason: "Claims O(1) while also describing higher complexity.",
@@ -100,8 +130,8 @@ function contradictionSnap(text: string): PulsarFinding | null {
 
 function overconfidence(meteor: MeteorClaims, nebula: NebulaResult): PulsarFinding | null {
   const strong = meteor.strong_assertions.length;
-  // Spec: METEOR finds >=3 strong assertions AND NEBULA finds 0 qualifiers.
-  if (strong >= 3 && nebula.signals.qualifiers === 0) {
+  const unsupportedAbsoluteSignal = strong >= 3 || nebula.signals.missing_qualifiers >= 2;
+  if (unsupportedAbsoluteSignal && nebula.signals.qualifiers === 0) {
     return {
       type: "OVERCONFIDENCE",
       description: `Output uses ${strong} absolute assertions (e.g. always/never/guaranteed) with no hedging.`,

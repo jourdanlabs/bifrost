@@ -21,12 +21,12 @@ interface VerifyResult {
 }
 
 const UNVERIFIED_TIMEOUT_MS = 800;
-const verified = new Set<string>();
+const verified = new Map<string, string>();
 
 async function verify(text: string): Promise<VerifyResult> {
   return new Promise((resolve) => {
     chrome.runtime.sendMessage(
-      { type: "BIFROST_VERIFY", output: text },
+      { type: "BIFROST_VERIFY", output: text.slice(0, 120_000) },
       (response: VerifyResult | undefined) => {
         if (chrome.runtime.lastError) {
           resolve({ ok: false, error: chrome.runtime.lastError.message ?? "runtime error" });
@@ -54,8 +54,9 @@ function reasonFromResult(result: VerifyResult): UnavailableReason {
 
 export function startEdge(adapter: Adapter): void {
   adapter.attach(async (target: ResponseTarget) => {
-    if (verified.has(target.id)) return;
-    verified.add(target.id);
+    const signature = `${target.text.length}:${target.text.slice(0, 80)}:${target.text.slice(-80)}`;
+    if (verified.get(target.id) === signature) return;
+    verified.set(target.id, signature);
 
     const t0 = performance.now();
     const badge = renderUnverified(target.host, target.id);
