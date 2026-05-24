@@ -23,6 +23,7 @@ interface VerifyResult {
 const UNVERIFIED_TIMEOUT_MS = 800;
 const verified = new Map<string, string>();
 const verifiedBySignature = new Map<string, string>();
+const attachedHosts = new WeakSet<HTMLElement>();
 
 async function verify(text: string): Promise<VerifyResult> {
   return new Promise((resolve) => {
@@ -66,14 +67,33 @@ function visibleDuplicateExists(key: string): boolean {
   return Boolean(document.querySelector(`[data-bifrost-signature="${key}"]`));
 }
 
+function overlapsExistingHost(host: HTMLElement): boolean {
+  for (const el of Array.from(document.querySelectorAll<HTMLElement>("[data-bifrost-attached='1']"))) {
+    if (el === host || el.contains(host) || host.contains(el)) return true;
+  }
+  return false;
+}
+
+function clearStaleOverlays(): void {
+  document
+    .querySelectorAll(".bifrost-strip, .bifrost-badge, .bifrost-panel")
+    .forEach((el) => el.remove());
+  document
+    .querySelectorAll<HTMLElement>("[data-bifrost-attached='1']")
+    .forEach((el) => el.removeAttribute("data-bifrost-attached"));
+}
+
 export function startEdge(adapter: Adapter): void {
+  clearStaleOverlays();
   adapter.attach(async (target: ResponseTarget) => {
     const signature = `${target.text.length}:${target.text.slice(0, 80)}:${target.text.slice(-80)}`;
     if (verified.get(target.id) === signature) return;
     const key = signatureKey(signature);
     if (verifiedBySignature.has(key) && visibleDuplicateExists(key)) return;
+    if (attachedHosts.has(target.host) || overlapsExistingHost(target.host)) return;
     verified.set(target.id, signature);
     verifiedBySignature.set(key, target.id);
+    attachedHosts.add(target.host);
 
     const t0 = performance.now();
     const badge = renderUnverified(target.host, target.id);

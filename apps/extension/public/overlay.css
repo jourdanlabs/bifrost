@@ -1,9 +1,7 @@
 /* BIFROST overlay. Minimal, fast, readable. Ugly > perfect. */
 
 .bifrost-badge {
-  position: absolute;
-  top: 6px;
-  right: 6px;
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -34,9 +32,6 @@
   pointer-events: none;
 }
 .bifrost-strip .bifrost-badge {
-  position: relative;
-  top: auto;
-  right: auto;
   pointer-events: auto;
 }
 .bifrost-strip .bifrost-panel {
