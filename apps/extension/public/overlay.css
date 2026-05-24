@@ -120,6 +120,11 @@
   padding: 0;
 }
 .bifrost-panel li { margin: 0 0 3px 0; }
+.bifrost-panel .bifrost-note {
+  margin: 0 0 8px 0;
+  color: #6b7280;
+  font-size: 11px;
+}
 .bifrost-panel .bifrost-finding {
   border-left: 2px solid #f59e0b;
   padding: 4px 8px;

@@ -58,6 +58,17 @@ function labelFor(v: Verdict): string {
   return "REJECTED";
 }
 
+function displayBand(res: BifrostResponse): string {
+  if (res.verdict === "REJECTED") return "BLOCKED";
+  if (res.verdict === "LOW_CONFIDENCE") return "REVIEW";
+  if (res.confidence >= 0.9) return "HIGH";
+  return "PASS";
+}
+
+function displayLabel(res: BifrostResponse): string {
+  return `${labelFor(res.verdict)} · ${displayBand(res)}`;
+}
+
 export function ensureHost(host: HTMLElement): void {
   const computed = window.getComputedStyle(host).position;
   if (computed === "static") {
@@ -171,8 +182,7 @@ export const renderError = renderUnavailable;
 export function renderVerdict(badge: HTMLElement, host: HTMLElement, res: BifrostResponse): void {
   badge.className = `bifrost-badge ${classFor(res.verdict)}`;
   badge.setAttribute("data-bifrost-state", "verdict");
-  const conf = `${Math.round(res.confidence * 100)}%`;
-  badge.innerHTML = `<span class="bifrost-dot"></span>${labelFor(res.verdict)} ${conf}`;
+  badge.innerHTML = `<span class="bifrost-dot"></span>${displayLabel(res)}`;
   badge.title = "Click for details";
 
   // Replace any prior click handler.
@@ -211,7 +221,7 @@ function escapeHtml(s: string): string {
 function buildPanel(res: BifrostResponse): HTMLElement {
   const panel = document.createElement("div");
   panel.className = "bifrost-panel";
-  const conf = `${Math.round(res.confidence * 100)}%`;
+  const label = displayLabel(res);
   const reasonsHtml = res.reasons.length
     ? `<ul>${res.reasons.map((r) => `<li>${escapeHtml(r)}</li>`).join("")}</ul>`
     : "";
@@ -228,7 +238,10 @@ function buildPanel(res: BifrostResponse): HTMLElement {
         .join("")
     : "";
   panel.innerHTML = `
-    <h4>BIFROST verdict — ${labelFor(res.verdict)} ${conf}</h4>
+    <h4>BIFROST verdict — ${label}</h4>
+    <p class="bifrost-note">
+      BIFROST checks risk signals and source posture; this is not a proof of factual certainty.
+    </p>
     ${reasonsHtml}
     ${findingsHtml ? `<h4>PULSAR findings</h4>${findingsHtml}` : ""}
     <div style="margin-top:6px;color:#6b7280;font-size:10px">${escapeHtml(res.timestamp)}</div>

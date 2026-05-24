@@ -1,7 +1,7 @@
 // OpenAI / ChatGPT adapter.
 // Watches for assistant message turns and reports finalized text.
 
-import { cleanResponseText } from "./dom";
+import { cleanResponseText, latestUserPromptBefore } from "./dom";
 import { Adapter, ResponseTarget } from "./types";
 
 const ASSISTANT_SELECTOR = '[data-message-author-role="assistant"]';
@@ -29,7 +29,7 @@ export const openaiAdapter: Adapter = {
         if (streaming) return;
         if (now - prior.settledAt < STABILITY_MS) return;
         const id = node.getAttribute("data-message-id") ?? `oai-${prior.settledAt}`;
-        const target: ResponseTarget = { id, host: node, text, streaming: false };
+        const target: ResponseTarget = { id, host: node, text, streaming: false, input: latestUserPromptBefore(node) };
         onTarget(target);
       });
     }

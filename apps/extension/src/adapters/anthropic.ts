@@ -1,6 +1,6 @@
 // Anthropic / Claude.ai adapter.
 
-import { cleanResponseText } from "./dom";
+import { cleanResponseText, latestUserPromptBefore } from "./dom";
 import { Adapter, ResponseTarget } from "./types";
 
 // Claude renders assistant messages with [data-test-render-count] on
@@ -35,7 +35,7 @@ export const anthropicAdapter: Adapter = {
         if (streaming) return;
         if (now - prior.settledAt < STABILITY_MS) return;
         const id = node.id || `claude-${prior.settledAt}`;
-        const target: ResponseTarget = { id, host: node, text, streaming: false };
+        const target: ResponseTarget = { id, host: node, text, streaming: false, input: latestUserPromptBefore(node) };
         onTarget(target);
       });
     }

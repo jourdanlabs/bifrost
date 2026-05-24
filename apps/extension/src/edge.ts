@@ -25,10 +25,10 @@ const verified = new Map<string, string>();
 const verifiedBySignature = new Map<string, string>();
 const attachedHosts = new WeakSet<HTMLElement>();
 
-async function verify(text: string): Promise<VerifyResult> {
+async function verify(text: string, input?: string): Promise<VerifyResult> {
   return new Promise((resolve) => {
     chrome.runtime.sendMessage(
-      { type: "BIFROST_VERIFY", output: text.slice(0, 120_000) },
+      { type: "BIFROST_VERIFY", output: text.slice(0, 120_000), input },
       (response: VerifyResult | undefined) => {
         if (chrome.runtime.lastError) {
           resolve({ ok: false, error: chrome.runtime.lastError.message ?? "runtime error" });
@@ -105,7 +105,7 @@ export function startEdge(adapter: Adapter): void {
       renderUnavailable(badge, target.host, "timeout");
     }, UNVERIFIED_TIMEOUT_MS);
 
-    const result = await verify(target.text);
+    const result = await verify(target.text, target.input);
     if (timedOut) return; // late response; UI already showed UNAVAILABLE
     window.clearTimeout(timer);
 

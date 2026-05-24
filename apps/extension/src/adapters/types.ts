@@ -8,6 +8,8 @@ export interface ResponseTarget {
   host: HTMLElement;
   // The finished, visible text of the AI response.
   text: string;
+  // Best-effort visible user prompt that caused the response.
+  input?: string;
   // True if streaming is still active. Adapters that can't tell may always
   // return false.
   streaming: boolean;

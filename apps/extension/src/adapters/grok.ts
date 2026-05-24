@@ -1,4 +1,4 @@
-import { cleanResponseText } from "./dom";
+import { cleanResponseText, latestUserPromptBefore } from "./dom";
 import { Adapter, ResponseTarget } from "./types";
 
 const ASSISTANT_SELECTORS = [
@@ -40,7 +40,7 @@ export const grokAdapter: Adapter = {
         }
         if (now - prior.settledAt < STABILITY_MS) continue;
         const id = node.id || `grok-${prior.settledAt}`;
-        onTarget({ id, host: node, text, streaming: false });
+        onTarget({ id, host: node, text, streaming: false, input: latestUserPromptBefore(node) });
       }
     }
 

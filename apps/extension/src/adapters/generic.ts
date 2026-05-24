@@ -5,7 +5,7 @@
 // prose inside likely chat containers) and only emit each one once after a
 // significant idle period.
 
-import { cleanResponseText } from "./dom";
+import { cleanResponseText, latestUserPromptBefore } from "./dom";
 import { Adapter, ResponseTarget } from "./types";
 
 const SETTLED_MS = 2000;
@@ -50,7 +50,7 @@ export const genericAdapter: Adapter = {
         }
         if (now - prior.settledAt < SETTLED_MS) continue;
         const id = node.id || `gen-${prior.settledAt}`;
-        const target: ResponseTarget = { id, host: node, text, streaming: false };
+        const target: ResponseTarget = { id, host: node, text, streaming: false, input: latestUserPromptBefore(node) };
         onTarget(target);
       }
     }

@@ -1,4 +1,4 @@
-import { cleanResponseText } from "./dom";
+import { cleanResponseText, latestUserPromptBefore } from "./dom";
 import { Adapter, ResponseTarget } from "./types";
 
 const ASSISTANT_SELECTORS = [
@@ -55,7 +55,7 @@ export const geminiAdapter: Adapter = {
         }
         if (now - prior.settledAt < STABILITY_MS) continue;
         const id = node.id || node.getAttribute("data-response-index") || `gemini-${prior.settledAt}`;
-        const target: ResponseTarget = { id, host: node, text, streaming: false };
+        const target: ResponseTarget = { id, host: node, text, streaming: false, input: latestUserPromptBefore(node) };
         onTarget(target);
       }
     }

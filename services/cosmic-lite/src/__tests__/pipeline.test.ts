@@ -41,6 +41,17 @@ test("dense absolute claims stay low confidence even with unrelated qualifiers",
   assert.notEqual(response.verdict, "APPROVED");
 });
 
+test("ambiguous Iran war prompt resolved to Iran-Iraq War requires review", () => {
+  const { response } = runPipeline({
+    input: "what was the start of the iran war?",
+    output:
+      "When people ask about the Iran War, they are almost always referring to the Iran-Iraq War. The war officially started on September 22, 1980, when Iraqi forces under Saddam Hussein invaded Iran.",
+  });
+  const types = response.pulsar_findings.map((f) => f.type);
+  assert.ok(types.includes("QUESTION_ASSUMPTION"), `expected QUESTION_ASSUMPTION, got ${types}`);
+  assert.equal(response.verdict, "LOW_CONFIDENCE");
+});
+
 test("code with no guards -> EDGE_CASE_FAILURE", () => {
   const { response } = runPipeline({
     output:

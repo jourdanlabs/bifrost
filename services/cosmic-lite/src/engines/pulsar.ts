@@ -5,6 +5,8 @@
 //   2. CONTRADICTION_SNAP  — mismatched complexity / logical inconsistencies
 //   3. OVERCONFIDENCE      — fires only if METEOR has >=3 strong assertions
 //                            AND NEBULA has 0 qualifier-style signals.
+//   4. QUESTION_ASSUMPTION — output resolves an ambiguous prompt without
+//                            asking for clarification.
 
 import type { MeteorClaims, NebulaResult, PulsarFinding } from "@bifrost/types";
 
@@ -142,10 +144,56 @@ function overconfidence(meteor: MeteorClaims, nebula: NebulaResult): PulsarFindi
   return null;
 }
 
+function questionAssumption(input: string | undefined, text: string): PulsarFinding | null {
+  if (!input) return null;
+
+  const prompt = input.toLowerCase();
+  const output = text.toLowerCase();
+
+  const asksAmbiguousIranWar =
+    /\biran(?:ian)? war\b/.test(prompt) &&
+    !/\biraq\b/.test(prompt) &&
+    /\b(start|started|begin|began|cause|caused|origin|origins)\b/.test(prompt);
+  const asksCurrentConflict =
+    /\b(current|latest|today|now|ongoing|recent)\b/.test(prompt) &&
+    /\b(iran|israel|war|conflict)\b/.test(prompt);
+  const resolvesToIranIraq =
+    /\biran[- ]iraq war\b|\biraqi forces\b|\bsaddam hussein\b|\bseptember 22,\s*1980\b/.test(
+      output
+    );
+  const signalsAssumption =
+    /\balmost always\b|\busually\b|\btypically\b|\blikely\b|\bprobably\b|\breferring to\b/.test(
+      output
+    );
+
+  if ((asksAmbiguousIranWar || asksCurrentConflict) && resolvesToIranIraq) {
+    return {
+      type: "QUESTION_ASSUMPTION",
+      description:
+        "Output resolved an ambiguous/current conflict prompt to the Iran-Iraq War without confirming the user's intended referent.",
+      impact:
+        "High risk of answering the wrong question while sounding well sourced; user intent needs clarification.",
+    };
+  }
+
+  if (asksAmbiguousIranWar && signalsAssumption) {
+    return {
+      type: "QUESTION_ASSUMPTION",
+      description:
+        "Output acknowledged the prompt was ambiguous but proceeded with one interpretation instead of asking a clarification question.",
+      impact:
+        "User may receive a polished answer to the wrong question; clarification should be requested.",
+    };
+  }
+
+  return null;
+}
+
 export function pulsarLite(
   text: string,
   meteor: MeteorClaims,
-  nebula: NebulaResult
+  nebula: NebulaResult,
+  input?: string
 ): PulsarFinding[] {
   const findings: PulsarFinding[] = [];
 
@@ -157,6 +205,9 @@ export function pulsarLite(
 
   const f3 = overconfidence(meteor, nebula);
   if (f3 && findings.length < MAX_FINDINGS) findings.push(f3);
+
+  const f4 = questionAssumption(input, text);
+  if (f4 && findings.length < MAX_FINDINGS) findings.push(f4);
 
   return findings.slice(0, MAX_FINDINGS);
 }

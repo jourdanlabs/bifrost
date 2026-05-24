@@ -66,6 +66,9 @@ function capScoreForFindings(score: number, findings: ReturnType<typeof pulsarLi
   if (types.has("OVERCONFIDENCE")) {
     return Math.min(score, 0.79);
   }
+  if (types.has("QUESTION_ASSUMPTION")) {
+    return Math.min(score, 0.79);
+  }
   return score;
 }
 
@@ -89,7 +92,7 @@ export function runPipeline(req: BifrostRequest): PipelineResult {
   const nebula = nebulaScore(normalized);
   const t3 = nowMs();
 
-  const findings = pulsarLite(normalized, meteor, nebula);
+  const findings = pulsarLite(normalized, meteor, nebula, req.input);
   const t4 = nowMs();
 
   const score = capScoreForFindings(quasarScore(nebula.uncertainty_score, findings), findings);
