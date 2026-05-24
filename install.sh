@@ -93,7 +93,16 @@ else
 fi
 
 log "checking verifier"
-if curl -fsS "http://127.0.0.1:$PORT/healthz" >/dev/null; then
+ready=0
+for _ in 1 2 3 4 5 6 7 8 9 10; do
+  if curl -fsS "http://127.0.0.1:$PORT/healthz" >/dev/null; then
+    ready=1
+    break
+  fi
+  sleep 1
+done
+
+if [ "$ready" = "1" ]; then
   log "BIFROST verifier is live at http://127.0.0.1:$PORT/verify"
 else
   log "verifier did not answer yet; check logs, then retry http://127.0.0.1:$PORT/healthz"
