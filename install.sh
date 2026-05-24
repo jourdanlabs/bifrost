@@ -43,10 +43,13 @@ log "installing dependencies"
 pnpm install
 
 log "building local verifier + Chrome extension"
+pnpm --filter @bifrost/types build
 pnpm --filter @bifrost/cosmic-lite build
 pnpm --filter @bifrost/extension build
 
-if [ "$(uname -s)" = "Darwin" ]; then
+if [ "${BIFROST_SKIP_SERVICE:-0}" = "1" ]; then
+  log "skipping service install because BIFROST_SKIP_SERVICE=1"
+elif [ "$(uname -s)" = "Darwin" ]; then
   PLIST="$HOME/Library/LaunchAgents/$SERVICE_ID.plist"
   NODE_BIN="$(command -v node)"
   log "installing macOS LaunchAgent $SERVICE_ID"
