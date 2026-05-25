@@ -20,9 +20,30 @@ const ASSISTANT_SELECTORS = [
 
 const USER_HINT = /\b(user|human|prompt|query|question)\b/i;
 const STABILITY_MS = 900;
+const SHORT_QUESTION_RE = /^(who|what|when|where|why|how|is|are|do|does|did|can|could|should|would|will|was|were)\b/i;
+
+function isCompactQuestion(text: string): boolean {
+  const words = text.split(/\s+/).filter(Boolean);
+  if (words.length > 22) return false;
+  return text.includes("?") || SHORT_QUESTION_RE.test(text);
+}
+
+function isRightAlignedBubble(node: HTMLElement): boolean {
+  const rect = node.getBoundingClientRect();
+  if (!Number.isFinite(rect.left) || !Number.isFinite(rect.width) || rect.width <= 0) return false;
+  const center = rect.left + rect.width / 2;
+  return center > window.innerWidth * 0.58 && rect.width < window.innerWidth * 0.72;
+}
+
+function isLikelyPromptBubble(node: HTMLElement, text: string): boolean {
+  if (isLikelyUserPromptNode(node)) return true;
+  if (isCompactQuestion(text) && isRightAlignedBubble(node)) return true;
+  return false;
+}
 
 function isLikelyAssistant(node: HTMLElement): boolean {
-  if (isLikelyUserPromptNode(node)) return false;
+  const text = cleanResponseText(node);
+  if (isLikelyPromptBubble(node, text)) return false;
   const marker = [
     node.getAttribute("data-role"),
     node.getAttribute("data-testid"),
@@ -32,7 +53,7 @@ function isLikelyAssistant(node: HTMLElement): boolean {
     .filter(Boolean)
     .join(" ");
   if (USER_HINT.test(marker) && !/assistant|answer|response|markdown/i.test(marker)) return false;
-  return cleanResponseText(node).length >= 36;
+  return text.length >= 36;
 }
 
 function sameAnswerSurface(parent: HTMLElement, child: HTMLElement): boolean {

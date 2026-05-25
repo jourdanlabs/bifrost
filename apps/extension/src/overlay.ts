@@ -1,7 +1,7 @@
 // Overlay rendering. Badge + click-to-expand panel.
 //
-// Visual states (per addendum B):
-//   APPROVED / LOW / REJECTED  — verdict states from AURORA
+// Visual states:
+//   APPROVED / REVIEW / BLOCKED — display labels for AURORA verdicts
 //   UNVERIFIED                 — transient, "verification in progress"
 //   UNAVAILABLE                — BIFROST cannot verify (network / key / rate limit).
 //                                Distinct from a suspicious AI output.
@@ -46,27 +46,36 @@ const UNAVAILABLE_COPY: Record<UnavailableReason, { short: string; long: string;
   },
 };
 
-function classFor(v: Verdict): string {
-  if (v === "APPROVED") return "bifrost-approved";
-  if (v === "LOW_CONFIDENCE") return "bifrost-low";
+function hasRiskNotes(res: BifrostResponse): boolean {
+  const benignReasons = new Set(["No high-risk signals detected."]);
+  return res.pulsar_findings.length > 0 || res.reasons.some((reason) => !benignReasons.has(reason));
+}
+
+function classFor(res: BifrostResponse): string {
+  if (res.verdict === "APPROVED" && !hasRiskNotes(res)) return "bifrost-approved";
+  if (res.verdict === "APPROVED" || res.verdict === "LOW_CONFIDENCE") return "bifrost-low";
   return "bifrost-rejected";
 }
 
 function labelFor(v: Verdict): string {
   if (v === "APPROVED") return "APPROVED";
-  if (v === "LOW_CONFIDENCE") return "LOW";
-  return "REJECTED";
+  if (v === "LOW_CONFIDENCE") return "REVIEW";
+  return "BLOCKED";
 }
 
-function displayBand(res: BifrostResponse): string {
-  if (res.verdict === "REJECTED") return "BLOCKED";
-  if (res.verdict === "LOW_CONFIDENCE") return "REVIEW";
+function postureFor(res: BifrostResponse): string {
+  if (res.verdict === "REJECTED") return "DO NOT TRUST";
+  if (res.verdict === "LOW_CONFIDENCE") return "SOURCE POSTURE";
+  if (hasRiskNotes(res)) return "FLAGS NOTED";
   if (res.confidence >= 0.9) return "HIGH";
-  return "PASS";
+  return "BASIC CHECK";
 }
 
 function displayLabel(res: BifrostResponse): string {
-  return `${labelFor(res.verdict)} · ${displayBand(res)}`;
+  if (res.verdict === "APPROVED" && hasRiskNotes(res)) {
+    return "REVIEW · FLAGS NOTED";
+  }
+  return `${labelFor(res.verdict)} · ${postureFor(res)}`;
 }
 
 export function ensureHost(host: HTMLElement): void {
@@ -180,7 +189,7 @@ export function renderUnavailable(
 export const renderError = renderUnavailable;
 
 export function renderVerdict(badge: HTMLElement, host: HTMLElement, res: BifrostResponse): void {
-  badge.className = `bifrost-badge ${classFor(res.verdict)}`;
+  badge.className = `bifrost-badge ${classFor(res)}`;
   badge.setAttribute("data-bifrost-state", "verdict");
   badge.innerHTML = `<span class="bifrost-dot"></span>${displayLabel(res)}`;
   badge.title = "Click for details";

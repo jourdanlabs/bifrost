@@ -10,6 +10,12 @@ import { Adapter, ResponseTarget } from "./types";
 
 const SETTLED_MS = 2000;
 const MIN_TEXT_LEN = 80;
+const BUILDER_STATUS_RE =
+  /^(creating|building|generating|drafting|designing|polishing|formatting|adding|placing|rendering|preparing|assembling|uploading|exporting|saving|thinking|working|analyzing|searching)\b/i;
+const BUILDER_NOUN_RE =
+  /\b(slide|slides|deck|presentation|layout|template|theme|section|page|chart|image|icon|animation|speaker notes?)\b/i;
+const PROGRESS_RE =
+  /\b(step\s*\d+|slide\s*\d+|page\s*\d+|\d+\s*%|almost done|in progress|working on|one moment|hang tight|please wait)\b/i;
 
 const HINTS = [
   '[role="article"]',
@@ -27,6 +33,31 @@ const HINTS = [
   '[data-testid*="answer"]',
   '[data-testid*="response"]',
 ];
+
+function looksLikeBuilderStatus(text: string): boolean {
+  const normalized = text.replace(/\s+/g, " ").trim();
+  if (!normalized) return true;
+  const sentenceCount = normalized.split(/[.!?]\s+/).filter(Boolean).length;
+  const wordCount = normalized.split(/\s+/).filter(Boolean).length;
+
+  if (wordCount <= 18 && (BUILDER_STATUS_RE.test(normalized) || PROGRESS_RE.test(normalized))) {
+    return true;
+  }
+
+  if (
+    wordCount <= 35 &&
+    BUILDER_STATUS_RE.test(normalized) &&
+    (BUILDER_NOUN_RE.test(normalized) || PROGRESS_RE.test(normalized))
+  ) {
+    return true;
+  }
+
+  if (wordCount <= 55 && sentenceCount <= 2 && PROGRESS_RE.test(normalized) && BUILDER_NOUN_RE.test(normalized)) {
+    return true;
+  }
+
+  return false;
+}
 
 export const genericAdapter: Adapter = {
   name: "generic",
@@ -47,6 +78,7 @@ export const genericAdapter: Adapter = {
       for (const node of candidates()) {
         const text = cleanResponseText(node);
         if (text.length < MIN_TEXT_LEN) continue;
+        if (looksLikeBuilderStatus(text)) continue;
         const prior = seen.get(node);
         if (!prior || prior.text !== text) {
           seen.set(node, { text, settledAt: now });

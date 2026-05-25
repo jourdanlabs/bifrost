@@ -7,6 +7,8 @@
 //                            AND NEBULA has 0 qualifier-style signals.
 //   4. QUESTION_ASSUMPTION — output resolves an ambiguous prompt without
 //                            asking for clarification.
+//   5. VALUE_JUDGMENT      — output handles normative / subjective questions
+//                            with caveats rather than a definitive verdict.
 
 import type { MeteorClaims, NebulaResult, PulsarFinding } from "@bifrost/types";
 
@@ -189,6 +191,53 @@ function questionAssumption(input: string | undefined, text: string): PulsarFind
   return null;
 }
 
+function valueJudgment(input: string | undefined, text: string): PulsarFinding | null {
+  if (!input) return null;
+
+  const prompt = input.toLowerCase();
+  const output = text.toLowerCase();
+  const asksNormative =
+    /\b(is|are|was|were)\b.{0,80}\b(good|bad|evil|moral|immoral|right|wrong|trustworthy|legitimate|corrupt|ethical|unethical)\b/.test(
+      prompt
+    ) ||
+    /\b(should i trust|should we trust|do you support|do you oppose|is .* worth supporting)\b/.test(
+      prompt
+    );
+  if (!asksNormative) return null;
+
+  const caveatSignals = [
+    "i don't have a definitive",
+    "i do not have a definitive",
+    "there is no definitive",
+    "depends",
+    "depending on",
+    "how you define",
+    "what you value",
+    "reasonable people",
+    "on the one hand",
+    "on the other hand",
+    "criticism",
+    "critics",
+    "supporters",
+    "praise",
+    "tradeoff",
+    "trade-off",
+  ];
+  const caveats = caveatSignals.filter((signal) => output.includes(signal)).length;
+
+  if (caveats >= 2) {
+    return {
+      type: "VALUE_JUDGMENT",
+      description:
+        "Output answers a subjective or politically loaded value question with caveats rather than a definitive yes/no.",
+      impact:
+        "Good uncertainty posture, but the result should be reviewed as a framing judgment rather than treated as settled fact.",
+    };
+  }
+
+  return null;
+}
+
 export function pulsarLite(
   text: string,
   meteor: MeteorClaims,
@@ -208,6 +257,9 @@ export function pulsarLite(
 
   const f4 = questionAssumption(input, text);
   if (f4 && findings.length < MAX_FINDINGS) findings.push(f4);
+
+  const f5 = valueJudgment(input, text);
+  if (f5 && findings.length < MAX_FINDINGS) findings.push(f5);
 
   return findings.slice(0, MAX_FINDINGS);
 }
