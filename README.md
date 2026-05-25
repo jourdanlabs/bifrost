@@ -12,7 +12,7 @@
   <img src="https://img.shields.io/badge/tests-16%2F16_passing-22c55e" alt="16/16 tests passing" />
   <img src="https://img.shields.io/badge/p95_latency-0.36ms-22c55e" alt="p95 latency 0.36ms" />
   <img src="https://img.shields.io/badge/budget-150ms-6b7280" alt="150ms budget" />
-  <img src="https://img.shields.io/badge/license-MIT-6b7280" alt="MIT" />
+  <img src="https://img.shields.io/badge/license-Apache--2.0-6b7280" alt="Apache-2.0" />
 </p>
 
 ---
@@ -444,7 +444,12 @@ bifrost/
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+Apache License 2.0. See [LICENSE](LICENSE).
+
+The code is open source. The BIFROST, BIFROST EDGE, COSMIC, PULSAR,
+JourdanLabs, Baby PULSAR, and related names/logos are JourdanLabs brand assets
+and are not licensed for misleading resale, rebranding, or endorsement claims.
+See [NOTICE](NOTICE) and [TRADEMARKS.md](TRADEMARKS.md).
 
 ## Built by
 
