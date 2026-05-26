@@ -8,7 +8,7 @@
     "install:local": "bash install.sh",
     "dev:api": "pnpm --filter @bifrost/cosmic-lite dev",
     "dev:cli": "pnpm --dir apps/cli dev",
-    "test": "pnpm -r test"
+    "test": "pnpm --filter @bifrost/types build && pnpm -r test"
   },
   "packageManager": "pnpm@9.0.0",
   "license": "Apache-2.0"
