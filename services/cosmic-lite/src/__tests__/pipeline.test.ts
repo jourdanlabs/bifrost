@@ -52,6 +52,17 @@ test("ambiguous Iran war prompt resolved to Iran-Iraq War requires review", () =
   assert.equal(response.verdict, "LOW_CONFIDENCE");
 });
 
+test("subjective political value judgment carries review posture", () => {
+  const { response } = runPipeline({
+    input: "is this political party good?",
+    output:
+      "I do not have a definitive answer. It depends on what you value; supporters praise its economic policy, while critics point to governance trade-offs.",
+  });
+  const types = response.pulsar_findings.map((f) => f.type);
+  assert.ok(types.includes("VALUE_JUDGMENT"), `expected VALUE_JUDGMENT, got ${types}`);
+  assert.ok(response.confidence < 0.9, `expected non-high confidence, got ${response.confidence}`);
+});
+
 test("code with no guards -> EDGE_CASE_FAILURE", () => {
   const { response } = runPipeline({
     output:

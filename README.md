@@ -9,7 +9,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/version-v0.1-7c3aed" alt="v0.1" />
-  <img src="https://img.shields.io/badge/tests-16%2F16_passing-22c55e" alt="16/16 tests passing" />
+  <img src="https://img.shields.io/badge/tests-23%2F23_passing-22c55e" alt="23/23 tests passing" />
   <img src="https://img.shields.io/badge/p95_latency-0.36ms-22c55e" alt="p95 latency 0.36ms" />
   <img src="https://img.shields.io/badge/budget-150ms-6b7280" alt="150ms budget" />
   <img src="https://img.shields.io/badge/license-Apache--2.0-6b7280" alt="Apache-2.0" />
@@ -81,15 +81,13 @@ Real example, end-to-end:
 ```bash
 $ echo "function divide(a, b) { return a / b; }" | bifrost verify
 
-[APPROVED 0.85]
+[REJECTED 0.59]
 PULSAR found:
   - EDGE_CASE_FAILURE: division without zero check
 ```
 
-> **Note.** This example reads `APPROVED` rather than `REJECTED` because v0.1
-> ships uncalibrated QUASAR weights — a single PULSAR finding only deducts
-> 0.15. The finding is correct and visible; the score is awaiting calibration.
-> See [§ 8.1 — Uncalibrated QUASAR baseline](#81--uncalibrated-quasar-baseline).
+This is the intended v0.1 posture: obvious unsafe code is blocked, while
+review-shaped findings stay visible and auditable.
 
 ### Chrome extension
 
@@ -99,8 +97,13 @@ pnpm --filter @bifrost/extension build
 
 Then in Chrome: `chrome://extensions` → Developer Mode on → **Load unpacked** → `apps/extension/dist`.
 
-Dedicated adapters are included for ChatGPT, Claude, Gemini, Grok, and
-Perplexity, with a generic fallback for other AI chat UIs.
+Dedicated adapters are included for ChatGPT, Claude, Gemini, Grok,
+Perplexity, DeepSeek, Kimi, MiniMax, Qwen, Doubao, Yuanbao, Ernie, ChatGLM,
+and Z.ai.
+
+The extension intentionally does **not** inject on every website by default.
+That keeps BIFROST from grading ordinary pages, builder progress messages, or
+non-AI product UIs unless a site is explicitly supported.
 
 ### VS Code extension
 
@@ -115,7 +118,7 @@ BIFROST: Verify current document
 By default, BIFROST runs against the local COSMIC-lite server. Start it with:
 
 ```bash
-pnpm --filter cosmic-lite dev
+pnpm --filter @bifrost/cosmic-lite dev
 ```
 
 The endpoint defaults to `http://localhost:8787/verify`. Direct shape:
@@ -291,7 +294,7 @@ PULSAR findings:
 
 ```bash
 $ echo "function divide(a, b) { return a / b; }" | bifrost verify
-[APPROVED 0.85]
+[REJECTED 0.59]
   - PULSAR-lite raised 1 finding(s).
 
 PULSAR findings:
@@ -299,15 +302,26 @@ PULSAR findings:
     impact: Will likely throw or return incorrect results on empty arrays, null, or zero-length input.
 ```
 
-> **Note:** PULSAR raises the finding correctly (no zero-check guard), but
-> the verdict lands at `APPROVED 0.85` rather than `REJECTED` because v0.1
-> ships uncalibrated QUASAR weights — a single PULSAR finding deducts only
-> 0.15. **A REJECTED verdict on this shape is a v0.2 calibration deliverable**
-> (see [§ Methodology disclosures — 8.1](#81--uncalibrated-quasar-baseline)).
-> Tune locally with `BIFROST_WEIGHT_P=0.30`.
+The finding and verdict are both deterministic, so this shape is consumable by
+anyone wiring BIFROST into a CI gate today.
 
-The finding itself is what matters at v0.1 — it is visible, advisory, and
-consumable by anyone wiring BIFROST into a CI gate today.
+**Subjective value judgment -> APPROVED with review posture**
+
+```bash
+$ bifrost verify --input "is this political party good?" \
+  "I do not have a definitive answer. It depends on what you value; supporters praise its economic policy, while critics point to governance trade-offs."
+[APPROVED 0.81]
+  - Detected 1 ambiguity marker(s).
+  - PULSAR-lite raised 1 finding(s).
+
+PULSAR findings:
+  * VALUE_JUDGMENT: Output answers a subjective or politically loaded value question with caveats rather than a definitive yes/no.
+    impact: Good uncertainty posture, but the result should be reviewed as a framing judgment rather than treated as settled fact.
+```
+
+BIFROST does not pretend that a nuanced political or subjective answer is a
+settled fact. The Chrome extension displays this as review posture instead of
+as a high-confidence endorsement.
 
 ---
 
@@ -397,7 +411,7 @@ Commands:
 - [x] COSMIC-lite pipeline: ASTRAL → METEOR → NEBULA → PULSAR-lite → QUASAR → AURORA
 - [x] API total p95 ≤ 150ms (measured: 0.36ms)
 - [x] Per-engine budgets all green (ASTRAL/METEOR/NEBULA/PULSAR/QUASAR/AURORA)
-- [x] Tests passing: 16/16 cosmic-lite
+- [x] Tests passing: 19/19 cosmic-lite + 4/4 VS Code
 - [x] Chrome extension `UNVERIFIED → verdict` <500ms perceived (measured: 0.53ms p95)
 - [x] `UNVERIFIED` never persists indefinitely (800ms timeout → `UNAVAILABLE`)
 - [x] `UNAVAILABLE` distinct from `REJECTED`, with specific reason on click

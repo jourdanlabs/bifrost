@@ -5,7 +5,6 @@
   "description": "AI generates. BIFROST verifies. Real-time verdict overlay on AI responses.",
   "permissions": ["storage", "activeTab"],
   "host_permissions": [
-    "<all_urls>",
     "https://chat.openai.com/*",
     "https://chatgpt.com/*",
     "https://claude.ai/*",
@@ -78,40 +77,6 @@
         "https://www.z.ai/*"
       ],
       "js": ["content.js"],
-      "css": ["overlay.css"],
-      "run_at": "document_idle"
-    },
-    {
-      "matches": ["<all_urls>"],
-      "exclude_matches": [
-        "https://chat.openai.com/*",
-        "https://chatgpt.com/*",
-        "https://claude.ai/*",
-        "https://gemini.google.com/*",
-        "https://aistudio.google.com/*",
-        "https://grok.com/*",
-        "https://*.grok.com/*",
-        "https://perplexity.ai/*",
-        "https://www.perplexity.ai/*",
-        "https://copilot.microsoft.com/*",
-        "https://chat.deepseek.com/*",
-        "https://www.deepseek.com/*",
-        "https://kimi.com/*",
-        "https://www.kimi.com/*",
-        "https://chat.minimax.io/*",
-        "https://qwen.ai/*",
-        "https://chat.qwen.ai/*",
-        "https://doubao.com/*",
-        "https://www.doubao.com/*",
-        "https://yuanbao.tencent.com/*",
-        "https://ernie.baidu.com/*",
-        "https://yiyan.baidu.com/*",
-        "https://chatglm.cn/*",
-        "https://www.chatglm.cn/*",
-        "https://z.ai/*",
-        "https://www.z.ai/*"
-      ],
-      "js": ["content-generic.js"],
       "css": ["overlay.css"],
       "run_at": "document_idle"
     }
