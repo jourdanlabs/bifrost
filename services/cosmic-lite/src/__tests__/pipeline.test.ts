@@ -9,6 +9,8 @@ test("clean short output -> APPROVED", () => {
     output: "Use Array.prototype.map to transform a list.",
   });
   assert.equal(response.verdict, "APPROVED");
+  assert.equal(response.descriptor.display, "APPROVED");
+  assert.match(response.descriptor.label, /^APPROVED ·/);
   assert.ok(response.confidence >= 0.8);
 });
 
@@ -50,6 +52,9 @@ test("ambiguous Iran war prompt resolved to Iran-Iraq War requires review", () =
   const types = response.pulsar_findings.map((f) => f.type);
   assert.ok(types.includes("QUESTION_ASSUMPTION"), `expected QUESTION_ASSUMPTION, got ${types}`);
   assert.equal(response.verdict, "LOW_CONFIDENCE");
+  assert.equal(response.descriptor.display, "REVIEW");
+  assert.equal(response.descriptor.category, "ambiguous_prompt");
+  assert.equal(response.descriptor.label, "REVIEW · AMBIGUOUS PROMPT");
 });
 
 test("subjective political value judgment carries review posture", () => {
@@ -80,6 +85,9 @@ test("contradiction triggers CONTRADICTION_SNAP", () => {
   const types = response.pulsar_findings.map((f) => f.type);
   assert.ok(types.includes("CONTRADICTION_SNAP"), `expected CONTRADICTION_SNAP, got ${types}`);
   assert.equal(response.verdict, "REJECTED");
+  assert.equal(response.descriptor.display, "REJECTED");
+  assert.equal(response.descriptor.category, "internal_contradiction");
+  assert.equal(response.descriptor.label, "REJECTED · CONTRADICTION");
 });
 
 test("approval contradiction triggers CONTRADICTION_SNAP", () => {
@@ -135,6 +143,9 @@ test("response shape matches BifrostResponse contract", () => {
   const { response } = runPipeline({ output: "hello" });
   assert.ok(["APPROVED", "LOW_CONFIDENCE", "REJECTED"].includes(response.verdict));
   assert.equal(typeof response.confidence, "number");
+  assert.equal(typeof response.descriptor.label, "string");
+  assert.equal(typeof response.descriptor.headline, "string");
+  assert.equal(typeof response.descriptor.action, "string");
   assert.ok(Array.isArray(response.reasons));
   assert.ok(Array.isArray(response.pulsar_findings));
   assert.equal(typeof response.timestamp, "string");

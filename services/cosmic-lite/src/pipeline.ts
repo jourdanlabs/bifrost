@@ -1,7 +1,7 @@
 // COSMIC-lite pipeline.
 // Strict order: ASTRAL -> METEOR -> NEBULA -> PULSAR-lite -> QUASAR -> AURORA.
 
-import type { BifrostResponse, BifrostRequest, MeteorClaims } from "@bifrost/types";
+import type { BifrostResponse, BifrostRequest, MeteorClaims, PulsarFinding, Verdict, VerdictDescriptor } from "@bifrost/types";
 import { astralNormalize } from "./engines/astral";
 import { meteorExtract } from "./engines/meteor";
 import { bareCodeBlock } from "./engines/bare-code";
@@ -72,6 +72,111 @@ function capScoreForFindings(score: number, findings: ReturnType<typeof pulsarLi
   return score;
 }
 
+function primaryFinding(findings: PulsarFinding[]): PulsarFinding | null {
+  const priority = [
+    "EDGE_CASE_FAILURE",
+    "CONTRADICTION_SNAP",
+    "QUESTION_ASSUMPTION",
+    "OVERCONFIDENCE",
+    "VALUE_JUDGMENT",
+  ];
+  return priority.map((type) => findings.find((finding) => finding.type === type)).find(Boolean) ?? findings[0] ?? null;
+}
+
+function descriptorFromFinding(
+  verdict: Verdict,
+  confidence: number,
+  findings: PulsarFinding[],
+  reasons: string[]
+): VerdictDescriptor {
+  const finding = primaryFinding(findings);
+  const confidenceText = `${Math.round(confidence * 100)}%`;
+
+  if (finding?.type === "EDGE_CASE_FAILURE") {
+    return {
+      display: "REJECTED",
+      category: "code_edge_case",
+      label: "REJECTED · CODE EDGE CASE",
+      headline: "Code path lacks visible boundary handling.",
+      detail: finding.description,
+      action: "Do not use this code as-is; add null, empty, and boundary-case guards before trusting it.",
+    };
+  }
+  if (finding?.type === "CONTRADICTION_SNAP") {
+    return {
+      display: "REJECTED",
+      category: "internal_contradiction",
+      label: "REJECTED · CONTRADICTION",
+      headline: "The answer contains claims that cannot both be true.",
+      detail: finding.description,
+      action: "Treat the answer as unsafe until the contradiction is resolved against a source of record.",
+    };
+  }
+  if (finding?.type === "QUESTION_ASSUMPTION") {
+    return {
+      display: "REVIEW",
+      category: "ambiguous_prompt",
+      label: "REVIEW · AMBIGUOUS PROMPT",
+      headline: "The answer chose one interpretation without confirming intent.",
+      detail: finding.description,
+      action: "Ask a clarifying question or rerun with the intended referent made explicit.",
+    };
+  }
+  if (finding?.type === "OVERCONFIDENCE") {
+    return {
+      display: verdict === "REJECTED" ? "REJECTED" : "REVIEW",
+      category: "unsupported_confidence",
+      label: `${verdict === "REJECTED" ? "REJECTED" : "REVIEW"} · UNSUPPORTED CONFIDENCE`,
+      headline: "The answer sounds more certain than its support allows.",
+      detail: finding.description,
+      action: "Verify the claim externally or rewrite with explicit uncertainty and citations.",
+    };
+  }
+  if (finding?.type === "VALUE_JUDGMENT") {
+    return {
+      display: "REVIEW",
+      category: "judgment_call",
+      label: "REVIEW · JUDGMENT CALL",
+      headline: "The answer handles a subjective question with caveats.",
+      detail: finding.description,
+      action: "Use it as framing, not as a settled factual verdict.",
+    };
+  }
+
+  if (verdict === "REJECTED") {
+    return {
+      display: "REJECTED",
+      category: "blocked_output",
+      label: "REJECTED · RISK SIGNALS",
+      headline: "BIFROST found risk signals strong enough to block trust.",
+      detail: reasons[0] ?? "Risk signals exceeded the rejection threshold.",
+      action: "Do not rely on the answer until the flagged risk is resolved.",
+    };
+  }
+  if (verdict === "LOW_CONFIDENCE") {
+    const qualifierGap = reasons.find((reason) => /qualifier/i.test(reason));
+    return {
+      display: "REVIEW",
+      category: qualifierGap ? "qualifier_gap" : "review_posture",
+      label: qualifierGap ? "REVIEW · QUALIFIER GAP" : "REVIEW · SOURCE POSTURE",
+      headline: qualifierGap
+        ? "The answer is long or assertive without enough uncertainty markers."
+        : "The answer needs human/source review before reliance.",
+      detail: qualifierGap ?? reasons[0] ?? "BIFROST lowered confidence based on source-posture signals.",
+      action: "Check the underlying sources or tighten the answer before treating it as dependable.",
+    };
+  }
+
+  return {
+    display: "APPROVED",
+    category: confidence >= 0.9 ? "clean_high_confidence" : "clean_basic_check",
+    label: confidence >= 0.9 ? "APPROVED · CLEAN" : "APPROVED · BASIC CHECK",
+    headline: "No high-risk BIFROST signals were detected.",
+    detail: `Deterministic checks cleared at ${confidenceText}; this is not a claim of factual omniscience.`,
+    action: "Safe to use as a low-risk answer; verify domain facts when stakes are high.",
+  };
+}
+
 export function runPipeline(req: BifrostRequest): PipelineResult {
   const start = nowMs();
 
@@ -112,6 +217,7 @@ export function runPipeline(req: BifrostRequest): PipelineResult {
   const response: BifrostResponse = {
     verdict,
     confidence: score,
+    descriptor: descriptorFromFinding(verdict, score, findings, reasons),
     reasons,
     pulsar_findings: findings,
     timestamp: new Date().toISOString(),

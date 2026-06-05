@@ -1,9 +1,19 @@
 export type Verdict = "APPROVED" | "LOW_CONFIDENCE" | "REJECTED";
+export type DisplayVerdict = "APPROVED" | "REVIEW" | "REJECTED";
 
 export interface PulsarFinding {
   type: string;
   description: string;
   impact: string;
+}
+
+export interface VerdictDescriptor {
+  display: DisplayVerdict;
+  category: string;
+  label: string;
+  headline: string;
+  detail: string;
+  action: string;
 }
 
 export interface BifrostRequest {
@@ -14,6 +24,7 @@ export interface BifrostRequest {
 export interface BifrostResponse {
   verdict: Verdict;
   confidence: number;
+  descriptor: VerdictDescriptor;
   reasons: string[];
   pulsar_findings: PulsarFinding[];
   timestamp: string;

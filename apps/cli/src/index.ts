@@ -112,6 +112,10 @@ async function main() {
 
   const conf = data.confidence.toFixed(2);
   process.stdout.write(`[${colorize(data.verdict)} ${conf}]\n`);
+  if (data.descriptor) {
+    process.stdout.write(`  ${data.descriptor.label}: ${data.descriptor.headline}\n`);
+    process.stdout.write(`  action: ${data.descriptor.action}\n`);
+  }
   for (const r of data.reasons) process.stdout.write(`  - ${r}\n`);
   if (data.pulsar_findings.length > 0) {
     process.stdout.write("\nPULSAR findings:\n");

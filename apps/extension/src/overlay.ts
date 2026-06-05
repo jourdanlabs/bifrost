@@ -6,7 +6,7 @@
 //   UNAVAILABLE                — BIFROST cannot verify (network / key / rate limit).
 //                                Distinct from a suspicious AI output.
 
-import type { BifrostResponse, Verdict } from "@bifrost/types";
+import type { BifrostResponse, DisplayVerdict, Verdict, VerdictDescriptor } from "@bifrost/types";
 
 const BADGE_ATTR = "data-bifrost-attached";
 const STRIP_ATTR = "data-bifrost-strip";
@@ -52,15 +52,16 @@ function hasRiskNotes(res: BifrostResponse): boolean {
 }
 
 function classFor(res: BifrostResponse): string {
-  if (res.verdict === "APPROVED" && !hasRiskNotes(res)) return "bifrost-approved";
-  if (res.verdict === "APPROVED" || res.verdict === "LOW_CONFIDENCE") return "bifrost-low";
+  const display = descriptorFor(res).display;
+  if (display === "APPROVED") return "bifrost-approved";
+  if (display === "REVIEW") return "bifrost-low";
   return "bifrost-rejected";
 }
 
 function labelFor(v: Verdict): string {
   if (v === "APPROVED") return "APPROVED";
   if (v === "LOW_CONFIDENCE") return "REVIEW";
-  return "BLOCKED";
+  return "REJECTED";
 }
 
 function postureFor(res: BifrostResponse): string {
@@ -72,10 +73,37 @@ function postureFor(res: BifrostResponse): string {
 }
 
 function displayLabel(res: BifrostResponse): string {
-  if (res.verdict === "APPROVED" && hasRiskNotes(res)) {
-    return "REVIEW · FLAGS NOTED";
-  }
-  return `${labelFor(res.verdict)} · ${postureFor(res)}`;
+  return descriptorFor(res).label;
+}
+
+function displayFor(res: BifrostResponse): DisplayVerdict {
+  if (res.verdict === "REJECTED") return "REJECTED";
+  if (res.verdict === "LOW_CONFIDENCE" || hasRiskNotes(res)) return "REVIEW";
+  return "APPROVED";
+}
+
+function descriptorFor(res: BifrostResponse): VerdictDescriptor {
+  const descriptor = (res as BifrostResponse & { descriptor?: VerdictDescriptor }).descriptor;
+  if (descriptor?.label && descriptor?.headline && descriptor?.detail) return descriptor;
+  const display = displayFor(res);
+  return {
+    display,
+    category: display.toLowerCase(),
+    label: `${labelFor(res.verdict)} · ${postureFor(res)}`,
+    headline:
+      display === "APPROVED"
+        ? "No high-risk BIFROST signals were detected."
+        : display === "REVIEW"
+          ? "BIFROST found a review-worthy source posture signal."
+          : "BIFROST found risk signals strong enough to reject reliance.",
+    detail: res.pulsar_findings[0]?.description ?? res.reasons[0] ?? "No detail supplied.",
+    action:
+      display === "APPROVED"
+        ? "Use as low-risk output; verify domain facts when stakes are high."
+        : display === "REVIEW"
+          ? "Check the source posture or clarify the prompt before relying on this answer."
+          : "Do not trust this answer until the flagged issue is resolved.",
+  };
 }
 
 export function ensureHost(host: HTMLElement): void {
@@ -230,7 +258,8 @@ function escapeHtml(s: string): string {
 function buildPanel(res: BifrostResponse): HTMLElement {
   const panel = document.createElement("div");
   panel.className = "bifrost-panel";
-  const label = displayLabel(res);
+  const descriptor = descriptorFor(res);
+  const label = descriptor.label;
   const reasonsHtml = res.reasons.length
     ? `<ul>${res.reasons.map((r) => `<li>${escapeHtml(r)}</li>`).join("")}</ul>`
     : "";
@@ -249,8 +278,12 @@ function buildPanel(res: BifrostResponse): HTMLElement {
   panel.innerHTML = `
     <h4>BIFROST verdict — ${label}</h4>
     <p class="bifrost-note">
-      BIFROST checks risk signals and source posture; this is not a proof of factual certainty.
+      ${escapeHtml(descriptor.headline)}
     </p>
+    <div class="bifrost-descriptor">
+      <div>${escapeHtml(descriptor.detail)}</div>
+      <div><strong>Action:</strong> ${escapeHtml(descriptor.action)}</div>
+    </div>
     ${reasonsHtml}
     ${findingsHtml ? `<h4>PULSAR findings</h4>${findingsHtml}` : ""}
     <div style="margin-top:6px;color:#6b7280;font-size:10px">${escapeHtml(res.timestamp)}</div>

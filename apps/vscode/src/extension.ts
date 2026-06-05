@@ -127,15 +127,18 @@ async function verifyDocument(doc: vscode.TextDocument, settings: Settings, forc
     const result = await callVerify(settings.endpoint, text);
     lastVerifiedHash.set(key, hash);
 
-    const detail = `${result.verdict} ${result.confidence.toFixed(2)} — ${doc.fileName.split("/").pop()}`;
-    if (result.verdict === "APPROVED") setStatus("approved", detail);
-    else if (result.verdict === "LOW_CONFIDENCE") setStatus("low", detail);
+    const descriptor = result.descriptor;
+    const detail = descriptor
+      ? `${descriptor.label} ${result.confidence.toFixed(2)} — ${doc.fileName.split("/").pop()}`
+      : `${result.verdict} ${result.confidence.toFixed(2)} — ${doc.fileName.split("/").pop()}`;
+    if (descriptor?.display === "APPROVED" || (!descriptor && result.verdict === "APPROVED")) setStatus("approved", detail);
+    else if (descriptor?.display === "REVIEW" || result.verdict === "LOW_CONFIDENCE") setStatus("low", detail);
     else setStatus("rejected", detail);
 
     if (result.verdict === "REJECTED") {
       const findings = result.pulsar_findings.map((f) => `${f.type}: ${f.description}`).join("\n");
       const choice = await vscode.window.showWarningMessage(
-        `BIFROST: REJECTED (${result.confidence.toFixed(2)})${findings ? "\n" + findings : ""}`,
+        `BIFROST: ${descriptor?.label ?? "REJECTED"} (${result.confidence.toFixed(2)})${descriptor ? "\n" + descriptor.action : ""}${findings ? "\n" + findings : ""}`,
         "Show details"
       );
       if (choice === "Show details") {
@@ -212,4 +215,3 @@ export function deactivate() {
   lastVerifiedHash.clear();
   inFlight.clear();
 }
-

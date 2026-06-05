@@ -125,6 +125,18 @@
   color: #6b7280;
   font-size: 11px;
 }
+.bifrost-panel .bifrost-descriptor {
+  margin: 0 0 8px 0;
+  padding: 7px 8px;
+  border: 1px solid rgba(17, 24, 39, 0.08);
+  border-radius: 6px;
+  background: #f9fafb;
+  color: #374151;
+  font-size: 11px;
+}
+.bifrost-panel .bifrost-descriptor div + div {
+  margin-top: 4px;
+}
 .bifrost-panel .bifrost-finding {
   border-left: 2px solid #f59e0b;
   padding: 4px 8px;
