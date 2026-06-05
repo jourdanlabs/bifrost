@@ -68,6 +68,61 @@ test("subjective political value judgment carries review posture", () => {
   assert.ok(response.confidence < 0.9, `expected non-high confidence, got ${response.confidence}`);
 });
 
+test("current claim without visible source trail requires review", () => {
+  const { response } = runPipeline({
+    input: "What is the latest unemployment rate today?",
+    output:
+      "As of 2026, the unemployment rate is 3.7% and job openings are 8.1 million.",
+  });
+  const types = response.pulsar_findings.map((f) => f.type);
+  assert.ok(
+    types.includes("CURRENT_CLAIM_NO_SOURCE"),
+    `expected CURRENT_CLAIM_NO_SOURCE, got ${types}`
+  );
+  assert.equal(response.verdict, "LOW_CONFIDENCE");
+  assert.equal(response.descriptor.display, "REVIEW");
+  assert.equal(response.descriptor.category, "current_claim_no_source");
+  assert.equal(response.descriptor.label, "REVIEW · CURRENT CLAIM");
+});
+
+test("number-heavy answer without source trail requires review", () => {
+  const { response } = runPipeline({
+    output:
+      "Revenue was $12.4B, EBITDA was $3.1B, margin was 25%, debt was $4.2B, cash was $900M, and capex was $1.2B.",
+  });
+  const types = response.pulsar_findings.map((f) => f.type);
+  assert.ok(
+    types.includes("UNSOURCED_NUMERIC_CLAIMS"),
+    `expected UNSOURCED_NUMERIC_CLAIMS, got ${types}`
+  );
+  assert.equal(response.verdict, "LOW_CONFIDENCE");
+  assert.equal(response.descriptor.display, "REVIEW");
+  assert.equal(response.descriptor.category, "unsourced_numeric_claims");
+  assert.equal(response.descriptor.label, "REVIEW · UNSOURCED NUMBERS");
+});
+
+test("visible source trail suppresses current and numeric source-posture findings", () => {
+  const { response } = runPipeline({
+    input: "What is the latest revenue picture today?",
+    output:
+      "As of 2026, revenue was $12.4B, EBITDA was $3.1B, margin was 25%, debt was $4.2B, cash was $900M, and capex was $1.2B. Source: https://www.sec.gov/Archives/example.",
+  });
+  const types = response.pulsar_findings.map((f) => f.type);
+  assert.equal(types.includes("CURRENT_CLAIM_NO_SOURCE"), false);
+  assert.equal(types.includes("UNSOURCED_NUMERIC_CLAIMS"), false);
+  assert.equal(response.descriptor.category, "sourced_shape");
+  assert.equal(response.descriptor.label, "APPROVED · SOURCED SHAPE");
+});
+
+test("small numeric answer gets specific approved descriptor", () => {
+  const { response } = runPipeline({
+    output: "The model uses 3 inputs and returns 2 values.",
+  });
+  assert.equal(response.verdict, "APPROVED");
+  assert.equal(response.descriptor.category, "light_numeric_check");
+  assert.equal(response.descriptor.label, "APPROVED · LIGHT NUMERIC");
+});
+
 test("code with no guards -> EDGE_CASE_FAILURE", () => {
   const { response } = runPipeline({
     output:
@@ -76,6 +131,16 @@ test("code with no guards -> EDGE_CASE_FAILURE", () => {
   const types = response.pulsar_findings.map((f) => f.type);
   assert.ok(types.includes("EDGE_CASE_FAILURE"), `expected EDGE_CASE_FAILURE, got ${types}`);
   assert.equal(response.verdict, "REJECTED");
+});
+
+test("guarded code gets specific approved descriptor", () => {
+  const { response } = runPipeline({
+    output:
+      "```js\nfunction first(arr) { if (!arr?.length) return null; return arr[0]; }\n```",
+  });
+  assert.equal(response.verdict, "APPROVED");
+  assert.equal(response.descriptor.category, "guarded_code");
+  assert.equal(response.descriptor.label, "APPROVED · GUARDED CODE");
 });
 
 test("contradiction triggers CONTRADICTION_SNAP", () => {

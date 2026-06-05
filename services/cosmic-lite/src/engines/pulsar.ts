@@ -7,7 +7,9 @@
 //                            AND NEBULA has 0 qualifier-style signals.
 //   4. QUESTION_ASSUMPTION — output resolves an ambiguous prompt without
 //                            asking for clarification.
-//   5. VALUE_JUDGMENT      — output handles normative / subjective questions
+//   5. CURRENT_CLAIM_NO_SOURCE — current/latest answer with no visible source trail.
+//   6. UNSOURCED_NUMERIC_CLAIMS — number-heavy answer with no visible source trail.
+//   7. VALUE_JUDGMENT      — output handles normative / subjective questions
 //                            with caveats rather than a definitive verdict.
 
 import type { MeteorClaims, NebulaResult, PulsarFinding } from "@bifrost/types";
@@ -238,6 +240,47 @@ function valueJudgment(input: string | undefined, text: string): PulsarFinding |
   return null;
 }
 
+function hasVisibleSourceTrail(text: string): boolean {
+  return /https?:\/\//i.test(text) ||
+    /\bdoi:\s*\S+/i.test(text) ||
+    /\barxiv:\s*\S+/i.test(text) ||
+    /\bsec\.gov\b|\bpubmed\b|\bfda\b|\bedgar\b/i.test(text) ||
+    /\[\d+\]/.test(text) ||
+    /\([A-Z][A-Za-z .-]+,\s*20\d{2}\)/.test(text);
+}
+
+function currentClaimNoSource(input: string | undefined, text: string): PulsarFinding | null {
+  const prompt = (input ?? "").toLowerCase();
+  const output = text.toLowerCase();
+  const asksCurrent =
+    /\b(current|latest|today|now|ongoing|recent|this week|this month|as of)\b/.test(prompt);
+  const answersCurrent =
+    /\b(currently|latest|today|as of|recently|in 20\d{2}|for 20\d{2})\b/.test(output);
+  if (!(asksCurrent || answersCurrent)) return null;
+  if (hasVisibleSourceTrail(text)) return null;
+
+  return {
+    type: "CURRENT_CLAIM_NO_SOURCE",
+    description:
+      "Output makes a current or time-sensitive claim without a visible citation, filing, or source trail.",
+    impact:
+      "Current facts can change quickly; a confident answer without provenance should be reviewed before reliance.",
+  };
+}
+
+function unsourcedNumericClaims(text: string, meteor: MeteorClaims): PulsarFinding | null {
+  if (looksLikeCode(meteor)) return null;
+  if (meteor.numbers.length < 4) return null;
+  if (hasVisibleSourceTrail(text)) return null;
+  return {
+    type: "UNSOURCED_NUMERIC_CLAIMS",
+    description:
+      `Output includes ${meteor.numbers.length} numeric claims without a visible citation, filing, or source trail.`,
+    impact:
+      "Number-heavy answers are easy to misstate by orders of magnitude; source review is required before using them.",
+  };
+}
+
 export function pulsarLite(
   text: string,
   meteor: MeteorClaims,
@@ -258,8 +301,14 @@ export function pulsarLite(
   const f4 = questionAssumption(input, text);
   if (f4 && findings.length < MAX_FINDINGS) findings.push(f4);
 
-  const f5 = valueJudgment(input, text);
+  const f5 = currentClaimNoSource(input, text);
   if (f5 && findings.length < MAX_FINDINGS) findings.push(f5);
+
+  const f6 = unsourcedNumericClaims(text, meteor);
+  if (f6 && findings.length < MAX_FINDINGS) findings.push(f6);
+
+  const f7 = valueJudgment(input, text);
+  if (f7 && findings.length < MAX_FINDINGS) findings.push(f7);
 
   return findings.slice(0, MAX_FINDINGS);
 }

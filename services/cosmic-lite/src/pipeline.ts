@@ -63,10 +63,13 @@ function capScoreForFindings(score: number, findings: ReturnType<typeof pulsarLi
   if (types.has("EDGE_CASE_FAILURE") || types.has("CONTRADICTION_SNAP")) {
     return Math.min(score, 0.59);
   }
-  if (types.has("OVERCONFIDENCE")) {
+  if (types.has("QUESTION_ASSUMPTION")) {
     return Math.min(score, 0.79);
   }
-  if (types.has("QUESTION_ASSUMPTION")) {
+  if (types.has("CURRENT_CLAIM_NO_SOURCE") || types.has("UNSOURCED_NUMERIC_CLAIMS")) {
+    return Math.min(score, 0.79);
+  }
+  if (types.has("OVERCONFIDENCE")) {
     return Math.min(score, 0.79);
   }
   return score;
@@ -77,17 +80,30 @@ function primaryFinding(findings: PulsarFinding[]): PulsarFinding | null {
     "EDGE_CASE_FAILURE",
     "CONTRADICTION_SNAP",
     "QUESTION_ASSUMPTION",
+    "CURRENT_CLAIM_NO_SOURCE",
+    "UNSOURCED_NUMERIC_CLAIMS",
     "OVERCONFIDENCE",
     "VALUE_JUDGMENT",
   ];
   return priority.map((type) => findings.find((finding) => finding.type === type)).find(Boolean) ?? findings[0] ?? null;
 }
 
+function hasVisibleSourceTrail(text: string): boolean {
+  return /https?:\/\//i.test(text) ||
+    /\bdoi:\s*\S+/i.test(text) ||
+    /\barxiv:\s*\S+/i.test(text) ||
+    /\bsec\.gov\b|\bpubmed\b|\bfda\b|\bedgar\b/i.test(text) ||
+    /\[\d+\]/.test(text) ||
+    /\([A-Z][A-Za-z .-]+,\s*20\d{2}\)/.test(text);
+}
+
 function descriptorFromFinding(
   verdict: Verdict,
   confidence: number,
   findings: PulsarFinding[],
-  reasons: string[]
+  reasons: string[],
+  meteor: MeteorClaims,
+  normalized: string
 ): VerdictDescriptor {
   const finding = primaryFinding(findings);
   const confidenceText = `${Math.round(confidence * 100)}%`;
@@ -122,6 +138,26 @@ function descriptorFromFinding(
       action: "Ask a clarifying question or rerun with the intended referent made explicit.",
     };
   }
+  if (finding?.type === "CURRENT_CLAIM_NO_SOURCE") {
+    return {
+      display: "REVIEW",
+      category: "current_claim_no_source",
+      label: "REVIEW · CURRENT CLAIM",
+      headline: "The answer is time-sensitive but lacks visible provenance.",
+      detail: finding.description,
+      action: "Check a current source of record before relying on this answer.",
+    };
+  }
+  if (finding?.type === "UNSOURCED_NUMERIC_CLAIMS") {
+    return {
+      display: "REVIEW",
+      category: "unsourced_numeric_claims",
+      label: "REVIEW · UNSOURCED NUMBERS",
+      headline: "The answer is number-heavy without a visible source trail.",
+      detail: finding.description,
+      action: "Verify the figures against source documents before using them in work product.",
+    };
+  }
   if (finding?.type === "OVERCONFIDENCE") {
     return {
       display: verdict === "REJECTED" ? "REJECTED" : "REVIEW",
@@ -141,6 +177,39 @@ function descriptorFromFinding(
       detail: finding.description,
       action: "Use it as framing, not as a settled factual verdict.",
     };
+  }
+
+  if (verdict === "APPROVED") {
+    if (meteor.code_blocks.length > 0) {
+      return {
+        display: "APPROVED",
+        category: "guarded_code",
+        label: "APPROVED · GUARDED CODE",
+        headline: "Code cleared the fast boundary-risk scan.",
+        detail: `Deterministic checks cleared at ${confidenceText}; review domain behavior before shipping.`,
+        action: "Safe for a first pass; run real tests for production use.",
+      };
+    }
+    if (hasVisibleSourceTrail(normalized)) {
+      return {
+        display: "APPROVED",
+        category: "sourced_shape",
+        label: "APPROVED · SOURCED SHAPE",
+        headline: "The answer carries a visible source trail and no high-risk signals.",
+        detail: `Deterministic checks cleared at ${confidenceText}; BIFROST did not independently verify every cited source.`,
+        action: "Use the cited trail for spot-checking when stakes are high.",
+      };
+    }
+    if (meteor.numbers.length > 0) {
+      return {
+        display: "APPROVED",
+        category: "light_numeric_check",
+        label: "APPROVED · LIGHT NUMERIC",
+        headline: "Small numeric content cleared the risk scan.",
+        detail: `Found ${meteor.numbers.length} numeric claim(s), below the unsourced-number review threshold.`,
+        action: "Safe for low-stakes use; verify exact figures before publishing or transacting.",
+      };
+    }
   }
 
   if (verdict === "REJECTED") {
@@ -217,7 +286,7 @@ export function runPipeline(req: BifrostRequest): PipelineResult {
   const response: BifrostResponse = {
     verdict,
     confidence: score,
-    descriptor: descriptorFromFinding(verdict, score, findings, reasons),
+    descriptor: descriptorFromFinding(verdict, score, findings, reasons, meteor, normalized),
     reasons,
     pulsar_findings: findings,
     timestamp: new Date().toISOString(),
