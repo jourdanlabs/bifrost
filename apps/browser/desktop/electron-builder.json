@@ -1,0 +1,18 @@
+{
+  "appId": "com.jourdanlabs.bifrost.browser",
+  "productName": "BIFROST Browser",
+  "directories": {
+    "output": "desktop/release"
+  },
+  "files": [
+    "dist/**/*",
+    "desktop/main.cjs",
+    "desktop/preload.cjs",
+    "package.json"
+  ],
+  "mac": {
+    "category": "public.app-category.productivity",
+    "target": ["dmg"],
+    "identity": null
+  }
+}

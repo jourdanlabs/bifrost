@@ -3,9 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "description": "BIFROST-controlled browser surface for verifying AI answers in-page.",
+  "main": "desktop/main.cjs",
+  "author": "JourdanLabs",
   "scripts": {
     "build": "node scripts/build.mjs",
     "cap": "cap",
+    "desktop:dev": "pnpm build && electron desktop/main.cjs",
+    "desktop:pack": "pnpm build && electron-builder --config desktop/electron-builder.json --mac dmg",
     "dev": "node scripts/build.mjs --watch",
     "ios:open": "cap open ios",
     "ios:sync": "pnpm build && cap sync ios",
@@ -19,6 +23,8 @@
   },
   "devDependencies": {
     "@capacitor/cli": "^8.4.0",
+    "electron": "^42.3.3",
+    "electron-builder": "^26.15.0",
     "esbuild": "^0.21.0"
   }
 }

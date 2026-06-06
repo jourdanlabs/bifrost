@@ -5,11 +5,22 @@ import "./styles.css";
 declare global {
   interface Window {
     BifrostNative?: {
-      openUrl?: (url: string) => Promise<void> | void;
+      openUrl?: (target: string | NativeOpenTarget) => Promise<void> | void;
+      closeUrl?: () => Promise<void> | void;
       extractVisibleAnswer?: () => Promise<NativeExtraction> | NativeExtraction;
     };
   }
 }
+
+type NativeOpenTarget = {
+  url: string;
+  frame: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
+};
 
 type NativeExtraction = {
   url: string;
@@ -95,6 +106,27 @@ const labHtml = `<!doctype html>
 </body>
 </html>`;
 
+function nativePlaceholderHtml(url: string) {
+  return `<!doctype html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body { margin:0; min-height:100vh; display:grid; place-items:center; background:#f8f8ff; color:#171729; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+    div { max-width:280px; padding:24px; text-align:center; }
+    b { display:block; color:#4648d4; font:900 12px ui-monospace,SFMono-Regular,Menlo,monospace; letter-spacing:.14em; }
+    p { color:#6a6879; line-height:1.45; overflow-wrap:anywhere; }
+  </style>
+</head>
+<body>
+  <div>
+    <b>NATIVE WEBVIEW ACTIVE</b>
+    <p>${escapeHtml(url)}</p>
+  </div>
+</body>
+</html>`;
+}
+
 function byId<T extends HTMLElement>(id: string): T {
   const el = document.getElementById(id);
   if (!el) throw new Error(`missing #${id}`);
@@ -109,6 +141,17 @@ function resetStages() {
   for (const stage of ["capture", "extract", "verify", "seal"]) setStage(stage, false);
 }
 
+function resetVerificationView() {
+  currentReceipt = null;
+  verificationShell.dataset.drawer = "compact";
+  verdictCard.dataset.state = "idle";
+  verdictLabel.textContent = "READY";
+  verdictHeadline.textContent = "Open an AI page inside BIFROST, then verify the visible answer.";
+  confidenceBar.style.width = "0%";
+  resultCard.hidden = true;
+  receiptCard.hidden = true;
+}
+
 function normalizeUrl(value: string): string {
   const trimmed = value.trim();
   if (!trimmed || trimmed === "bifrost://lab") return "bifrost://lab";
@@ -116,12 +159,30 @@ function normalizeUrl(value: string): string {
   return `https://${trimmed}`;
 }
 
+async function waitForNativeBridge(timeoutMs = 800): Promise<Window["BifrostNative"] | undefined> {
+  if (window.BifrostNative?.openUrl) return window.BifrostNative;
+
+  return new Promise((resolve) => {
+    let settled = false;
+    const settle = () => {
+      if (settled) return;
+      settled = true;
+      window.removeEventListener("bifrost-native-ready", settle);
+      window.clearTimeout(timer);
+      resolve(window.BifrostNative?.openUrl ? window.BifrostNative : undefined);
+    };
+    const timer = window.setTimeout(settle, timeoutMs);
+    window.addEventListener("bifrost-native-ready", settle);
+  });
+}
+
 async function openUrl(value = urlInput.value) {
-  verificationShell.dataset.drawer = "compact";
+  resetVerificationView();
   resetStages();
   const url = normalizeUrl(value);
   urlInput.value = url;
   if (url === "bifrost://lab") {
+    await window.BifrostNative?.closeUrl?.();
     browserFrame.removeAttribute("src");
     browserFrame.srcdoc = labHtml;
     bridgeState.textContent = "LOCAL LAB";
@@ -129,9 +190,24 @@ async function openUrl(value = urlInput.value) {
     return;
   }
 
-  bridgeState.textContent = window.BifrostNative ? "NATIVE WEBVIEW" : "PREVIEW";
-  if (window.BifrostNative?.openUrl) {
-    await window.BifrostNative.openUrl(url);
+  bridgeState.textContent = "CONNECTING";
+  const nativeBridge = await waitForNativeBridge();
+  bridgeState.textContent = nativeBridge?.openUrl ? "NATIVE WEBVIEW" : "PREVIEW";
+  if (nativeBridge?.openUrl) {
+    const frame = browserFrame.getBoundingClientRect();
+    browserFrame.removeAttribute("src");
+    browserFrame.srcdoc = nativePlaceholderHtml(url);
+    setStage("capture", true);
+    await nativeBridge.openUrl({
+      url,
+      frame: {
+        x: frame.x,
+        y: frame.y,
+        width: frame.width,
+        height: frame.height,
+      },
+    });
+    return;
   }
   browserFrame.removeAttribute("srcdoc");
   browserFrame.src = url;
@@ -162,8 +238,13 @@ function extractFromControlledFrame(): NativeExtraction | null {
 }
 
 async function extractVisibleAnswer(): Promise<NativeExtraction> {
-  const native = await window.BifrostNative?.extractVisibleAnswer?.();
-  if (native?.answer?.trim()) return native;
+  const nativeBridge = await waitForNativeBridge(250);
+  try {
+    const native = await nativeBridge?.extractVisibleAnswer?.();
+    if (native?.answer?.trim()) return native;
+  } catch {
+    // Local lab and web fallback paths do not have a native page view open.
+  }
   const controlled = extractFromControlledFrame();
   if (controlled) return controlled;
   throw new Error("BIFROST cannot extract this page in the web workbench. The native app WebView bridge owns that path.");
@@ -306,6 +387,9 @@ function exportReceipt() {
 }
 
 function wire() {
+  window.addEventListener("bifrost-native-ready", () => {
+    if (urlInput.value !== "bifrost://lab") bridgeState.textContent = "NATIVE WEBVIEW";
+  });
   openButton.addEventListener("click", () => void openUrl());
   verifyButton.addEventListener("click", () => void verifyPage());
   browseButton.addEventListener("click", () => {

@@ -4,7 +4,12 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#0c1020" />
-    <link rel="stylesheet" href="/app.css" />
+    <script>
+      if (new URLSearchParams(location.search).get("shell") === "desktop") {
+        document.documentElement.classList.add("bifrost-desktop");
+      }
+    </script>
+    <link rel="stylesheet" href="./app.css" />
     <title>BIFROST Browser</title>
   </head>
   <body class="browser-app">
@@ -20,6 +25,28 @@
         </div>
       </header>
 
+      <aside class="desktop-sidebar" aria-label="Workspace navigation">
+        <div class="desktop-workspace">
+          <span class="workspace-glyph">⌬</span>
+          <div>
+            <strong>Workspace</strong>
+            <span>Verified AI Work</span>
+          </div>
+        </div>
+        <nav class="desktop-nav" aria-label="AI work">
+          <span class="desktop-nav-label">AI Work</span>
+          <button type="button" data-target="https://chatgpt.com" class="active"><b>GPT</b><span>ChatGPT</span></button>
+          <button type="button" data-target="https://claude.ai"><b>CLA</b><span>Claude</span></button>
+          <button type="button" data-target="https://gemini.google.com"><b>GEM</b><span>Gemini</span></button>
+          <button type="button" data-target="https://www.perplexity.ai"><b>PER</b><span>Perplexity</span></button>
+          <button type="button" data-target="https://grok.com"><b>GRK</b><span>Grok</span></button>
+          <span class="desktop-nav-label">Library</span>
+          <button type="button"><b>REC</b><span>Recent Pages</span></button>
+          <button type="button"><b>RCP</b><span>Receipts</span></button>
+          <button type="button"><b>SET</b><span>Settings</span></button>
+        </nav>
+      </aside>
+
       <section class="browser-chrome" aria-label="Browser controls">
         <div class="address-row">
           <span class="lock-icon">⌘</span>
@@ -32,6 +59,12 @@
           <button type="button" data-target="https://claude.ai"><b>CLA</b><span>Claude</span></button>
           <button type="button" data-target="https://gemini.google.com"><b>GEM</b><span>Gemini</span></button>
         </div>
+      </section>
+
+      <section class="desktop-tabs" aria-label="Browser tabs">
+        <button type="button" class="active"><span>●</span> Active page</button>
+        <button type="button"><span>✦</span> Verification notes</button>
+        <button type="button" class="add-tab">+</button>
       </section>
 
       <section class="browser-viewport">
@@ -106,6 +139,6 @@
         </nav>
       </aside>
     </main>
-    <script type="module" src="/app.js"></script>
+    <script type="module" src="./app.js"></script>
   </body>
 </html>

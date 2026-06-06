@@ -1,16 +1,15 @@
 # BIFROST Browser
 
-BIFROST Browser is the mobile path for BIFROST. It is not a paste/share tool and
-it is not a pretend Chrome extension. It is a controlled browser surface: users
-open AI tools inside BIFROST, then BIFROST extracts the visible assistant answer,
-runs COSMIC-lite, and seals the verdict receipt.
+BIFROST Browser is the owned-browser path for BIFROST. It is not a paste/share
+tool and it is not a pretend Chrome extension. It is a controlled browser
+surface: users open AI tools inside BIFROST, then BIFROST extracts the visible
+assistant answer, runs COSMIC-lite, and seals the verdict receipt.
 
 ## Why This Exists
 
-Desktop BIFROST works as a Chrome extension because desktop browsers allow page
-injection. Mobile browsers generally do not provide the same extension surface.
-The viable mobile product is a browser app, like DuckDuckGo's model: BIFROST owns
-the WebView, so it can govern what happens inside it.
+The Chrome extension remains useful, but the durable product is a browser app,
+like DuckDuckGo's model: BIFROST owns the WebView/BrowserView, so it can govern
+what happens inside it across mobile and desktop.
 
 ## V1 Workbench
 
@@ -18,10 +17,12 @@ This package ships the web workbench for the browser app:
 
 - controlled address bar
 - iframe-based local AI lab for same-origin extraction
-- native `window.BifrostNative` bridge contract for iOS/Android WebView shells
+- native `window.BifrostNative` bridge contract for iOS/macOS shells
 - deterministic COSMIC-lite verification
 - verdict panel and sealed JSON receipt
 - explicit extraction failure state for pages the web workbench cannot inspect
+- desktop browser layout with workspace sidebar, tab strip, page viewport, and
+  right-side verification inspector
 
 ## Native iOS App
 
@@ -35,11 +36,24 @@ The iOS project is the installable mobile carrier for BIFROST Browser:
 - native carrier: Capacitor iOS with Swift Package Manager
 - current verified path: local controlled AI lab -> extract visible answer -> COSMIC-lite verdict -> sealed receipt
 
-The current native app is intentionally honest about the hard boundary:
-same-origin pages can be extracted by the web workbench, and the native bridge
-contract is ready for the full WKWebView extraction layer. Cross-origin AI pages
-must be handled by the native bridge; when that bridge is absent, BIFROST fails
-closed instead of pretending it can read the page.
+The native iOS app uses a Swift WKWebView bridge for cross-origin page loading
+and visible-answer extraction. When the bridge is absent, BIFROST fails closed
+instead of pretending it can read the page.
+
+## Native macOS App
+
+The macOS target is an Electron browser shell at `desktop/`.
+
+- app id: `com.jourdanlabs.bifrost.browser`
+- product name: `BIFROST Browser`
+- source web bundle: `dist`
+- native carrier: Electron BrowserWindow + BrowserView
+- desktop layout: left workspace rail, top address controls, tab strip, central
+  page viewport, right verification inspector
+- current verified path: controlled AI lab -> extract visible answer ->
+  COSMIC-lite verdict -> sealed receipt
+- current external page path: ChatGPT opens inside the native BrowserView with
+  `NATIVE WEBVIEW` status
 
 ## Native Bridge Contract
 
@@ -47,7 +61,11 @@ A native wrapper can provide:
 
 ```ts
 window.BifrostNative = {
-  openUrl(url: string): void | Promise<void>,
+  openUrl(target: string | {
+    url: string;
+    frame?: { x: number; y: number; width: number; height: number };
+  }): void | Promise<void>,
+  closeUrl(): void | Promise<void>,
   extractVisibleAnswer(): {
     url: string;
     title?: string;
@@ -85,6 +103,22 @@ pnpm --filter @bifrost/browser ios:open
 
 For a real device/App Store build, set the signing team in Xcode, build the
 Release target, then archive through Xcode Organizer.
+
+## macOS Build
+
+Run the desktop browser in development:
+
+```bash
+pnpm --filter @bifrost/browser desktop:dev
+```
+
+Package a local unsigned DMG:
+
+```bash
+pnpm --filter @bifrost/browser desktop:pack
+```
+
+The DMG lands in `apps/browser/desktop/release/`.
 
 ## Local Run
 

@@ -13,3 +13,4 @@ DerivedData
 *.xcuserstate
 *.xcworkspace/xcuserdata
 *.xcodeproj/xcuserdata
+apps/browser/desktop/release/

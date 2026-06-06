@@ -91,6 +91,11 @@ input {
   box-shadow: 0 0 22px rgba(17, 28, 45, 0.08);
 }
 
+.desktop-sidebar,
+.desktop-tabs {
+  display: none;
+}
+
 .topbar {
   z-index: 3;
   display: flex;
@@ -509,6 +514,282 @@ iframe {
 
 [hidden] {
   display: none !important;
+}
+
+html.bifrost-desktop {
+  --topbar-height: 42px;
+}
+
+html.bifrost-desktop,
+html.bifrost-desktop body {
+  width: 100%;
+  height: 100%;
+  min-height: 100%;
+  overflow: hidden;
+  background: #eef1f9;
+}
+
+html.bifrost-desktop .phone-shell {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr) 320px;
+  grid-template-rows: var(--topbar-height) 58px 40px minmax(0, 1fr);
+  grid-template-areas:
+    "topbar topbar topbar"
+    "sidebar chrome chrome"
+    "sidebar tabs inspector"
+    "sidebar viewport inspector";
+  width: 100%;
+  max-width: none;
+  height: 100vh;
+  min-height: 0;
+  margin: 0;
+  box-shadow: none;
+}
+
+html.bifrost-desktop .topbar {
+  grid-area: topbar;
+  min-height: var(--topbar-height);
+  padding: 0.38rem 0.72rem;
+  border-color: #c7c4d7;
+  background: #f7f9fb;
+}
+
+html.bifrost-desktop .brand-mark {
+  font-size: 0.9rem;
+}
+
+html.bifrost-desktop .top-actions button {
+  width: 28px;
+  min-height: 28px;
+  border-radius: 4px;
+  background: transparent;
+}
+
+html.bifrost-desktop .desktop-sidebar {
+  grid-area: sidebar;
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem 0.72rem;
+  overflow-y: auto;
+  border-right: 1px solid #c7c4d7;
+  background: #eef1f5;
+}
+
+html.bifrost-desktop .desktop-workspace {
+  display: flex;
+  align-items: center;
+  gap: 0.68rem;
+  padding: 0.5rem 0.4rem 1.1rem;
+}
+
+html.bifrost-desktop .workspace-glyph {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border-radius: 6px;
+  background: var(--primary-soft);
+  color: var(--primary);
+  font-weight: 900;
+}
+
+html.bifrost-desktop .desktop-workspace strong,
+html.bifrost-desktop .desktop-workspace span {
+  display: block;
+}
+
+html.bifrost-desktop .desktop-workspace strong {
+  color: var(--primary);
+  font-size: 1.1rem;
+  letter-spacing: -0.03em;
+}
+
+html.bifrost-desktop .desktop-workspace span {
+  color: var(--muted);
+  font-size: 0.76rem;
+}
+
+html.bifrost-desktop .desktop-nav {
+  display: grid;
+  gap: 0.18rem;
+}
+
+html.bifrost-desktop .desktop-nav-label {
+  display: block;
+  margin: 1rem 0 0.28rem;
+  padding: 0 0.5rem;
+  color: #767586;
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+html.bifrost-desktop .desktop-nav button {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  min-height: 34px;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0 0.55rem;
+  border-left: 2px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  font-weight: 650;
+}
+
+html.bifrost-desktop .desktop-nav button b {
+  color: #767586;
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 0.68rem;
+}
+
+html.bifrost-desktop .desktop-nav button.active,
+html.bifrost-desktop .desktop-nav button:hover {
+  border-left-color: var(--primary);
+  background: #e0e3e5;
+  color: var(--primary);
+}
+
+html.bifrost-desktop .browser-chrome {
+  grid-area: chrome;
+  grid-template-columns: minmax(420px, 1fr) auto;
+  align-items: center;
+  min-height: 58px;
+  padding: 0.55rem 0.75rem;
+  border-color: #c7c4d7;
+  background: #f7f9fb;
+}
+
+html.bifrost-desktop .address-row {
+  max-width: none;
+  border-radius: 999px;
+  background: #f2f4f6;
+}
+
+html.bifrost-desktop .quick-row {
+  display: flex;
+  gap: 0.38rem;
+}
+
+html.bifrost-desktop .quick-row button {
+  display: flex;
+  min-width: 88px;
+  min-height: 34px;
+  justify-content: center;
+  padding: 0.2rem 0.5rem;
+  border: 1px solid rgba(199, 196, 215, 0.5);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.62);
+}
+
+html.bifrost-desktop .quick-row button b {
+  width: auto;
+  height: auto;
+  background: transparent;
+}
+
+html.bifrost-desktop .quick-row button.active {
+  border-color: rgba(70, 72, 212, 0.3);
+  background: var(--primary-soft);
+}
+
+html.bifrost-desktop .desktop-tabs {
+  grid-area: tabs;
+  display: flex;
+  align-items: end;
+  gap: 0.25rem;
+  min-width: 0;
+  padding: 0 0.55rem;
+  overflow: hidden;
+  border-bottom: 1px solid #c7c4d7;
+  background: #eceef0;
+}
+
+html.bifrost-desktop .desktop-tabs button {
+  display: flex;
+  min-width: 0;
+  width: 220px;
+  min-height: 32px;
+  align-items: center;
+  gap: 0.44rem;
+  justify-content: flex-start;
+  padding: 0 0.7rem;
+  border: 1px solid transparent;
+  border-bottom: 0;
+  border-radius: 6px 6px 0 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+html.bifrost-desktop .desktop-tabs button.active {
+  border-color: #c7c4d7;
+  background: #ffffff;
+  color: var(--text);
+}
+
+html.bifrost-desktop .desktop-tabs .add-tab {
+  width: 32px;
+  justify-content: center;
+  font-size: 1.15rem;
+}
+
+html.bifrost-desktop .browser-viewport {
+  grid-area: viewport;
+  height: auto;
+  min-height: 0;
+  margin-right: 0;
+  border-right: 1px solid rgba(199, 196, 215, 0.72);
+}
+
+html.bifrost-desktop iframe {
+  height: 100%;
+  min-height: 0;
+}
+
+html.bifrost-desktop .verification-shell {
+  position: static;
+  grid-area: inspector;
+  width: auto;
+  min-height: 0;
+  max-height: none;
+  padding: 1rem;
+  overflow-y: auto;
+  border: 0;
+  border-right: 0;
+  border-left: 1px solid #c7c4d7;
+  border-radius: 0;
+  box-shadow: -14px 0 32px rgba(17, 28, 45, 0.08);
+  background: rgba(255, 255, 255, 0.9);
+}
+
+html.bifrost-desktop .verification-shell[data-drawer="compact"] {
+  max-height: none;
+}
+
+html.bifrost-desktop .stage-card {
+  gap: 0.5rem;
+}
+
+html.bifrost-desktop .verdict-card,
+html.bifrost-desktop .drawer-card {
+  border-radius: 14px;
+}
+
+html.bifrost-desktop .drawer-card {
+  max-height: none;
+}
+
+html.bifrost-desktop .bottom-nav {
+  display: none;
 }
 
 @media (max-width: 360px) {
