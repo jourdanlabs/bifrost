@@ -105,6 +105,23 @@ The extension intentionally does **not** inject on every website by default.
 That keeps BIFROST from grading ordinary pages, builder progress messages, or
 non-AI product UIs unless a site is explicitly supported.
 
+### BIFROST Browser
+
+Mobile does not get a fake paste-only clone. The mobile path is
+[BIFROST Browser](apps/browser): a controlled browser app surface for phones.
+Users open AI tools inside BIFROST, then BIFROST extracts the visible assistant
+answer from the controlled WebView, runs COSMIC-lite, and seals a receipt.
+
+```bash
+pnpm --filter @bifrost/browser build
+cd apps/browser/dist
+python3 -m http.server 8795 --bind 127.0.0.1
+```
+
+The web workbench proves the browser mechanics with a same-origin AI lab. The
+native iOS/Android wrapper owns cross-origin WebView extraction through the
+`window.BifrostNative` bridge.
+
 ### VS Code extension
 
 Open the repo in VS Code, press **F5** to launch the extension host, then run:

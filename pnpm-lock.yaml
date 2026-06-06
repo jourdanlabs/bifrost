@@ -8,6 +8,16 @@ importers:
 
   .: {}
 
+  apps/browser:
+    dependencies:
+      '@bifrost/types':
+        specifier: workspace:*
+        version: link:../../packages/types
+    devDependencies:
+      esbuild:
+        specifier: ^0.21.0
+        version: 0.21.5
+
   apps/cli:
     dependencies:
       '@bifrost/types':

@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#0c1020" />
+    <link rel="stylesheet" href="/app.css" />
+    <title>BIFROST Browser</title>
+  </head>
+  <body class="browser-app">
+    <main class="phone-shell" aria-label="BIFROST Browser">
+      <header class="topbar" aria-label="BIFROST app bar">
+        <div>
+          <span class="brand-mark">BIFROST</span>
+          <span class="eyebrow">VERIFIED BROWSER</span>
+        </div>
+        <div class="top-actions">
+          <button type="button" aria-label="Refresh page">↻</button>
+          <button type="button" aria-label="Tabs">▢</button>
+        </div>
+      </header>
+
+      <section class="browser-chrome" aria-label="Browser controls">
+        <div class="address-row">
+          <span class="lock-icon">⌘</span>
+          <input id="urlInput" type="url" spellcheck="false" value="bifrost://lab" />
+          <button id="openButton" type="button">Open</button>
+        </div>
+        <div class="quick-row" aria-label="Quick targets">
+          <button type="button" data-target="bifrost://lab" class="active"><b>LAB</b><span>AI Lab</span></button>
+          <button type="button" data-target="https://chatgpt.com"><b>GPT</b><span>ChatGPT</span></button>
+          <button type="button" data-target="https://claude.ai"><b>CLA</b><span>Claude</span></button>
+          <button type="button" data-target="https://gemini.google.com"><b>GEM</b><span>Gemini</span></button>
+        </div>
+      </section>
+
+      <section class="browser-viewport">
+        <iframe id="browserFrame" title="Controlled AI browser surface"></iframe>
+      </section>
+
+      <aside class="verification-shell" id="verificationShell" data-drawer="compact" aria-label="BIFROST verification dock">
+        <section class="stage-card" aria-label="BIFROST capture stages">
+          <div class="stage" data-stage="capture"><b>01</b><span>Page</span></div>
+          <div class="stage" data-stage="extract"><b>02</b><span>Extract</span></div>
+          <div class="stage" data-stage="verify"><b>03</b><span>Verify</span></div>
+          <div class="stage" data-stage="seal"><b>04</b><span>Seal</span></div>
+        </section>
+
+        <section class="verdict-card" id="verdictCard" data-state="idle">
+          <div class="verdict-top">
+            <div>
+              <span class="eyebrow">STATUS</span>
+              <strong id="verdictLabel">READY</strong>
+            </div>
+            <div class="receipt-chip"><span id="bridgeState">LOCAL LAB</span> · 0 LLM calls</div>
+          </div>
+          <p id="verdictHeadline">Open an AI page inside BIFROST, then verify the visible answer.</p>
+          <i class="confidence"><b id="confidenceBar"></b></i>
+          <button id="verifyButton" type="button">Verify Page</button>
+        </section>
+
+        <section class="result-card drawer-card" id="resultCard" hidden>
+          <div class="card-head">
+            <span class="eyebrow">WHY</span>
+            <strong id="descriptorLabel"></strong>
+          </div>
+          <p id="descriptorDetail"></p>
+          <p class="action-line" id="descriptorAction"></p>
+          <div id="findingList" class="finding-list"></div>
+        </section>
+
+        <section class="receipt-card drawer-card" id="receiptCard" hidden>
+          <div class="card-head">
+            <span class="eyebrow">RECEIPT</span>
+            <strong id="receiptHash"></strong>
+          </div>
+          <dl class="receipt-grid">
+            <div>
+              <dt>URL</dt>
+              <dd id="receiptUrl"></dd>
+            </div>
+            <div>
+              <dt>Input hash</dt>
+              <dd id="inputHashText"></dd>
+            </div>
+            <div>
+              <dt>Runtime</dt>
+              <dd>0 LLM calls</dd>
+            </div>
+            <div>
+              <dt>Verdict</dt>
+              <dd id="receiptVerdict"></dd>
+            </div>
+          </dl>
+          <div class="button-row">
+            <button id="copyReceiptButton" type="button">Copy Receipt</button>
+            <button id="exportReceiptButton" type="button" class="ghost">Export JSON</button>
+          </div>
+        </section>
+
+        <nav class="bottom-nav" aria-label="Browser sections">
+          <button type="button" id="browseButton">Browse</button>
+          <button type="button" class="active">Verified</button>
+          <button type="button">Tabs</button>
+          <button type="button">Settings</button>
+        </nav>
+      </aside>
+    </main>
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>

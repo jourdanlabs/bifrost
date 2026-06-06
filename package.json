@@ -7,6 +7,7 @@
     "build": "pnpm -r build",
     "install:local": "bash install.sh",
     "dev:api": "pnpm --filter @bifrost/cosmic-lite dev",
+    "dev:browser": "pnpm --filter @bifrost/browser dev",
     "dev:cli": "pnpm --dir apps/cli dev",
     "test": "pnpm --filter @bifrost/types build && pnpm -r test"
   },
