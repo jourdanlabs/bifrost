@@ -26,7 +26,6 @@ export interface PipelineResult {
 }
 
 function nowMs(): number {
-  if (globalThis.performance?.now) return globalThis.performance.now();
   const [s, ns] = process.hrtime();
   return s * 1000 + ns / 1e6;
 }
