@@ -8,3 +8,8 @@ build
 coverage
 .turbo
 *.tsbuildinfo
+Pods
+DerivedData
+*.xcuserstate
+*.xcworkspace/xcuserdata
+*.xcodeproj/xcuserdata

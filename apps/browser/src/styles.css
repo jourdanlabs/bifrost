@@ -19,6 +19,7 @@
   --rejected: #dc2626;
   --rejected-soft: #fee2e2;
   --shadow: 0 -12px 42px rgba(17, 28, 45, 0.14);
+  --topbar-height: calc(56px + env(safe-area-inset-top));
 }
 
 * {
@@ -95,8 +96,8 @@ input {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  min-height: 56px;
-  padding: 0.7rem 1rem;
+  min-height: var(--topbar-height);
+  padding: calc(env(safe-area-inset-top) + 0.7rem) 1rem 0.7rem;
   border-bottom: 1px solid var(--line);
   background: var(--surface-high);
 }
@@ -225,7 +226,7 @@ input {
 iframe {
   display: block;
   width: 100%;
-  height: calc(100dvh - 56px - 126px - 188px);
+  height: calc(100dvh - var(--topbar-height) - 126px - 188px);
   min-height: 340px;
   border: 0;
   background: white;
@@ -516,6 +517,6 @@ iframe {
   }
 
   iframe {
-    height: calc(100dvh - 56px - 178px - 188px);
+    height: calc(100dvh - var(--topbar-height) - 178px - 188px);
   }
 }

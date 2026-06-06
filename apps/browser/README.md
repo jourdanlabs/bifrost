@@ -23,6 +23,24 @@ This package ships the web workbench for the browser app:
 - verdict panel and sealed JSON receipt
 - explicit extraction failure state for pages the web workbench cannot inspect
 
+## Native iOS App
+
+This package also ships a Capacitor-backed iOS app at `ios/App`.
+
+The iOS project is the installable mobile carrier for BIFROST Browser:
+
+- app id: `com.jourdanlabs.bifrost.browser`
+- app name: `BIFROST Browser`
+- source web bundle: `dist`
+- native carrier: Capacitor iOS with Swift Package Manager
+- current verified path: local controlled AI lab -> extract visible answer -> COSMIC-lite verdict -> sealed receipt
+
+The current native app is intentionally honest about the hard boundary:
+same-origin pages can be extracted by the web workbench, and the native bridge
+contract is ready for the full WKWebView extraction layer. Cross-origin AI pages
+must be handled by the native bridge; when that bridge is absent, BIFROST fails
+closed instead of pretending it can read the page.
+
 ## Native Bridge Contract
 
 A native wrapper can provide:
@@ -51,6 +69,23 @@ pnpm --filter @bifrost/browser build
 
 Static output lands in `apps/browser/dist`.
 
+## iOS Build
+
+```bash
+pnpm --filter @bifrost/browser ios:sync
+cd apps/browser/ios/App
+xcodebuild -project App.xcodeproj -scheme App -configuration Debug -destination 'generic/platform=iOS Simulator' build CODE_SIGNING_ALLOWED=NO
+```
+
+Open the project in Xcode:
+
+```bash
+pnpm --filter @bifrost/browser ios:open
+```
+
+For a real device/App Store build, set the signing team in Xcode, build the
+Release target, then archive through Xcode Organizer.
+
 ## Local Run
 
 ```bash
@@ -59,3 +94,17 @@ python3 -m http.server 8795 --bind 127.0.0.1
 ```
 
 Open `http://127.0.0.1:8795`, use `AI Lab`, then tap `Verify Page`.
+
+## Native Verification Performed
+
+The app has been verified on an iPhone simulator:
+
+- `pnpm --filter @bifrost/browser build`
+- `pnpm --filter @bifrost/browser test`
+- `pnpm --filter @bifrost/browser ios:sync`
+- `xcodebuild ... CODE_SIGNING_ALLOWED=NO`
+- `xcrun simctl install`
+- `xcrun simctl launch com.jourdanlabs.bifrost.browser`
+
+Simulator screenshots were captured after launch to confirm the mobile layout
+respects iOS safe areas.
