@@ -12,6 +12,7 @@
   ],
   "mac": {
     "category": "public.app-category.productivity",
+    "icon": "desktop/assets/bifrost-browser.icns",
     "target": ["dmg"],
     "identity": null
   }
