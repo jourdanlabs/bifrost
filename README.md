@@ -105,6 +105,21 @@ The extension intentionally does **not** inject on every website by default.
 That keeps BIFROST from grading ordinary pages, builder progress messages, or
 non-AI product UIs unless a site is explicitly supported.
 
+### Mobile PWA
+
+BIFROST now has a phone-first verifier in [apps/mobile](apps/mobile). It is a
+static PWA that runs COSMIC-lite directly in the browser, supports mobile share
+targets, and exports sealed JSON receipts.
+
+```bash
+pnpm --filter @bifrost/mobile build
+cd apps/mobile/dist
+python3 -m http.server 8795 --bind 127.0.0.1
+```
+
+Open `http://127.0.0.1:8795`. For real add-to-home-screen behavior and mobile
+share-target routing, host `apps/mobile/dist` over HTTPS.
+
 ### VS Code extension
 
 Open the repo in VS Code, press **F5** to launch the extension host, then run:

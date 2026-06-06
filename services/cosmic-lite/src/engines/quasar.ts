@@ -10,8 +10,14 @@ import type { PulsarFinding, QuasarConfig } from "@bifrost/types";
 import { DEFAULT_QUASAR_CONFIG } from "@bifrost/types";
 
 export function loadQuasarConfig(): QuasarConfig {
-  const u = Number(process.env.BIFROST_WEIGHT_U);
-  const p = Number(process.env.BIFROST_WEIGHT_P);
+  const env =
+    typeof globalThis !== "undefined" &&
+    "process" in globalThis &&
+    typeof (globalThis as typeof globalThis & { process?: NodeJS.Process }).process?.env === "object"
+      ? (globalThis as typeof globalThis & { process: NodeJS.Process }).process.env
+      : undefined;
+  const u = Number(env?.BIFROST_WEIGHT_U);
+  const p = Number(env?.BIFROST_WEIGHT_P);
   return {
     base_weight_uncertainty: Number.isFinite(u) ? u : DEFAULT_QUASAR_CONFIG.base_weight_uncertainty,
     base_weight_pulsar: Number.isFinite(p) ? p : DEFAULT_QUASAR_CONFIG.base_weight_pulsar,

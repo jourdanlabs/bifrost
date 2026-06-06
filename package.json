@@ -5,8 +5,10 @@
   "description": "AI generates. BIFROST verifies.",
   "scripts": {
     "build": "pnpm -r build",
+    "build:mobile": "pnpm --filter @bifrost/mobile build",
     "install:local": "bash install.sh",
     "dev:api": "pnpm --filter @bifrost/cosmic-lite dev",
+    "dev:mobile": "pnpm --filter @bifrost/mobile dev",
     "dev:cli": "pnpm --dir apps/cli dev",
     "test": "pnpm --filter @bifrost/types build && pnpm -r test"
   },
