@@ -20,6 +20,8 @@
           <span class="eyebrow">VERIFIED BROWSER</span>
         </div>
         <div class="top-actions">
+          <button id="toolsToggleButton" type="button" aria-label="Open BIFROST tools">☰</button>
+          <button id="verificationToggleButton" type="button" aria-label="Open BIFROST verdict">B</button>
           <button id="reloadTopButton" type="button" aria-label="Refresh page">↻</button>
           <button id="tabsTopButton" type="button" aria-label="Tabs">▢</button>
         </div>
@@ -74,7 +76,12 @@
         <iframe id="browserFrame" title="Controlled AI browser surface"></iframe>
       </section>
 
-      <aside class="verification-shell" id="verificationShell" data-drawer="compact" aria-label="BIFROST verification dock">
+      <button id="bifrostBadge" class="bifrost-badge" data-state="idle" type="button" aria-label="Run BIFROST verification">
+        <span id="badgeLabel">Verify</span>
+        <strong id="badgeStatus">BIFROST</strong>
+      </button>
+
+      <aside class="verification-shell" id="verificationShell" data-drawer="closed" aria-label="BIFROST verification dock">
         <section class="stage-card" aria-label="BIFROST capture stages">
           <div class="stage" data-stage="capture"><b>01</b><span>Page</span></div>
           <div class="stage" data-stage="extract"><b>02</b><span>Extract</span></div>
@@ -134,7 +141,7 @@
           </div>
         </section>
 
-        <section class="mobile-tab-card drawer-card" id="mobileTabCard">
+        <section class="mobile-tab-card drawer-card" id="mobileTabCard" hidden>
           <div class="card-head">
             <span class="eyebrow">TABS</span>
             <button id="mobileNewTabButton" type="button" class="ghost">New</button>
@@ -142,7 +149,7 @@
           <div id="mobileTabList" class="mobile-tab-list"></div>
         </section>
 
-        <section class="recent-pages-card drawer-card" id="recentPagesCard">
+        <section class="recent-pages-card drawer-card" id="recentPagesCard" hidden>
           <div class="card-head">
             <span class="eyebrow">RECENT PAGES</span>
             <strong id="recentPagesCount">0 pages</strong>
@@ -150,7 +157,7 @@
           <div id="recentPagesList" class="recent-pages-list"></div>
         </section>
 
-        <section class="history-card drawer-card" id="receiptHistoryCard">
+        <section class="history-card drawer-card" id="receiptHistoryCard" hidden>
           <div class="card-head">
             <span class="eyebrow">LOCAL HISTORY</span>
             <strong id="receiptHistoryCount">0 receipts</strong>
@@ -158,7 +165,7 @@
           <div id="receiptHistoryList" class="receipt-history-list"></div>
         </section>
 
-        <section class="settings-card drawer-card" id="settingsCard">
+        <section class="settings-card drawer-card" id="settingsCard" hidden>
           <div class="card-head">
             <span class="eyebrow">SETTINGS</span>
             <strong>Local first</strong>

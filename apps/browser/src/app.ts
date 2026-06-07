@@ -108,15 +108,22 @@ const forwardButton = byId<HTMLButtonElement>("forwardButton");
 const reloadButton = byId<HTMLButtonElement>("reloadButton");
 const reloadTopButton = byId<HTMLButtonElement>("reloadTopButton");
 const tabsTopButton = byId<HTMLButtonElement>("tabsTopButton");
+const toolsToggleButton = byId<HTMLButtonElement>("toolsToggleButton");
+const verificationToggleButton = byId<HTMLButtonElement>("verificationToggleButton");
 const mobileTabsButton = byId<HTMLButtonElement>("mobileTabsButton");
 const newTabButton = byId<HTMLButtonElement>("newTabButton");
 const mobileNewTabButton = byId<HTMLButtonElement>("mobileNewTabButton");
 const desktopTabs = byId<HTMLElement>("desktopTabs");
+const mobileTabCard = byId<HTMLElement>("mobileTabCard");
 const mobileTabList = byId<HTMLElement>("mobileTabList");
 const verifyButton = byId<HTMLButtonElement>("verifyButton");
 const browserFrame = byId<HTMLIFrameElement>("browserFrame");
 const bridgeState = byId<HTMLElement>("bridgeState");
 const verificationShell = byId<HTMLElement>("verificationShell");
+const appShell = document.querySelector<HTMLElement>(".phone-shell");
+const bifrostBadge = byId<HTMLButtonElement>("bifrostBadge");
+const badgeLabel = byId<HTMLElement>("badgeLabel");
+const badgeStatus = byId<HTMLElement>("badgeStatus");
 const browseButton = byId<HTMLButtonElement>("browseButton");
 const verdictCard = byId<HTMLElement>("verdictCard");
 const verdictLabel = byId<HTMLElement>("verdictLabel");
@@ -146,12 +153,14 @@ const recentPagesList = byId<HTMLElement>("recentPagesList");
 const settingsCard = byId<HTMLElement>("settingsCard");
 const clearLocalDataButton = byId<HTMLButtonElement>("clearLocalDataButton");
 const mobileSettingsButton = byId<HTMLButtonElement>("mobileSettingsButton");
+const libraryCards = [mobileTabCard, recentPagesCard, receiptHistoryCard, settingsCard];
 
 let currentReceipt: Receipt | null = null;
 let receiptHistory: Receipt[] = loadReceiptHistory();
 let pageHistory: PageHistoryEntry[] = loadPageHistory();
 const tabs: BrowserTab[] = [];
 let activeTabId = "";
+let currentBadgeState: "idle" | "approved" | "review" | "rejected" = "idle";
 
 const labHtml = `<!doctype html>
 <html>
@@ -363,13 +372,17 @@ function resetStages() {
 
 function resetVerificationView() {
   currentReceipt = null;
-  verificationShell.dataset.drawer = document.documentElement.classList.contains("bifrost-desktop") ? "expanded" : "compact";
+  currentBadgeState = "idle";
+  verificationShell.dataset.drawer = "closed";
+  appShell?.removeAttribute("data-tools");
+  updateBadge("idle", "Verify", "BIFROST");
   verdictCard.dataset.state = "idle";
   verdictLabel.textContent = "READY";
   verdictHeadline.textContent = "Open an AI page inside BIFROST, then verify the visible answer.";
   confidenceBar.style.width = "0%";
   resultCard.hidden = true;
   receiptCard.hidden = true;
+  hideLibraryCards();
 }
 
 function normalizeUrl(value: string): string {
@@ -538,8 +551,11 @@ async function extractVisibleAnswer(): Promise<NativeExtraction> {
 }
 
 async function verifyPage() {
+  currentBadgeState = "idle";
+  updateBadge("idle", "Checking", "BIFROST");
   verifyButton.disabled = true;
   verifyButton.textContent = "Verifying...";
+  bifrostBadge.disabled = true;
   try {
     const extraction = await extractVisibleAnswer();
     setStage("extract", true);
@@ -570,13 +586,16 @@ async function verifyPage() {
   } finally {
     verifyButton.disabled = false;
     verifyButton.textContent = "Verify Page";
+    bifrostBadge.disabled = false;
   }
 }
 
 function renderReceipt(receipt: Receipt) {
-  verificationShell.dataset.drawer = "expanded";
   const response = receipt.response;
-  verdictCard.dataset.state = stateFor(response.descriptor.display);
+  const nextState = stateFor(response.descriptor.display);
+  currentBadgeState = nextState;
+  updateBadge(nextState, response.descriptor.display, response.descriptor.label);
+  verdictCard.dataset.state = nextState;
   verdictLabel.textContent = response.descriptor.display;
   verdictHeadline.textContent = response.descriptor.headline;
   confidenceBar.style.width = `${Math.round(response.confidence * 100)}%`;
@@ -604,7 +623,8 @@ function renderReceipt(receipt: Receipt) {
 }
 
 function renderExtractionFailure(message: string) {
-  verificationShell.dataset.drawer = "expanded";
+  currentBadgeState = "review";
+  updateBadge("review", "REVIEW", "Needs page access");
   verdictCard.dataset.state = "review";
   verdictLabel.textContent = "REVIEW";
   verdictHeadline.textContent = message;
@@ -614,7 +634,6 @@ function renderExtractionFailure(message: string) {
 }
 
 function renderReceiptHistory() {
-  receiptHistoryCard.hidden = false;
   receiptHistoryCount.textContent = `${receiptHistory.length} receipt${receiptHistory.length === 1 ? "" : "s"}`;
   receiptHistoryList.innerHTML = "";
   if (receiptHistory.length === 0) {
@@ -790,10 +809,42 @@ function exportReceipt(receipt = currentReceipt) {
 }
 
 function openDrawer(target?: HTMLElement) {
+  if (target && libraryCards.includes(target)) {
+    hideLibraryCards();
+    target.hidden = false;
+  }
   verificationShell.dataset.drawer = "expanded";
+  appShell?.removeAttribute("data-tools");
   if (target) {
     window.requestAnimationFrame(() => target.scrollIntoView({ block: "nearest" }));
   }
+}
+
+function hideLibraryCards() {
+  for (const card of libraryCards) card.hidden = true;
+}
+
+function closeDrawers() {
+  verificationShell.dataset.drawer = "closed";
+  appShell?.removeAttribute("data-tools");
+}
+
+function toggleTools() {
+  const open = appShell?.dataset.tools === "open";
+  verificationShell.dataset.drawer = "closed";
+  appShell?.setAttribute("data-tools", open ? "closed" : "open");
+  if (open) appShell?.removeAttribute("data-tools");
+}
+
+function toggleVerification() {
+  appShell?.removeAttribute("data-tools");
+  verificationShell.dataset.drawer = verificationShell.dataset.drawer === "expanded" ? "closed" : "expanded";
+}
+
+function updateBadge(state: "idle" | "approved" | "review" | "rejected", label: string, status: string) {
+  bifrostBadge.dataset.state = state;
+  badgeLabel.textContent = label;
+  badgeStatus.textContent = status;
 }
 
 function clearLocalData() {
@@ -869,6 +920,8 @@ function wire() {
   forwardButton.addEventListener("click", () => void goForward());
   reloadButton.addEventListener("click", () => void reloadPage());
   reloadTopButton.addEventListener("click", () => void reloadPage());
+  toolsToggleButton.addEventListener("click", toggleTools);
+  verificationToggleButton.addEventListener("click", toggleVerification);
   tabsTopButton.addEventListener("click", () => {
     openDrawer(document.getElementById("mobileTabCard") ?? undefined);
     renderTabs();
@@ -886,8 +939,15 @@ function wire() {
     void activateTab(tab.id);
   });
   verifyButton.addEventListener("click", () => void verifyPage());
+  bifrostBadge.addEventListener("click", () => {
+    if (currentReceipt || currentBadgeState !== "idle") {
+      openDrawer(resultCard.hidden ? verdictCard : resultCard);
+      return;
+    }
+    void verifyPage();
+  });
   browseButton.addEventListener("click", () => {
-    verificationShell.dataset.drawer = "compact";
+    closeDrawers();
   });
   copyReceiptButton.addEventListener("click", () => void copyReceipt());
   exportReceiptButton.addEventListener("click", () => exportReceipt());
@@ -926,7 +986,10 @@ function wire() {
     renderControls();
   });
   document.querySelectorAll<HTMLButtonElement>("[data-target]").forEach((button) => {
-    button.addEventListener("click", () => void openUrl(button.dataset.target ?? "bifrost://lab"));
+    button.addEventListener("click", () => {
+      closeDrawers();
+      void openUrl(button.dataset.target ?? "bifrost://lab");
+    });
   });
 }
 

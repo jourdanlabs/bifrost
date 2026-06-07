@@ -20,6 +20,9 @@ assert(html.includes("receiptHistoryList"), "receipt history panel is missing");
 assert(html.includes("recentPagesList"), "recent pages panel is missing");
 assert(html.includes("clearLocalDataButton"), "local data clear control is missing");
 assert(html.includes("Tracker shield"), "tracker shield setting is missing");
+assert(html.includes("bifrostBadge"), "low-touch BIFROST verdict badge is missing");
+assert(html.includes("toolsToggleButton"), "tools drawer toggle is missing");
+assert(html.includes("verificationToggleButton"), "verification drawer toggle is missing");
 assert(app.includes("runPipeline"), "browser must call COSMIC-lite pipeline");
 assert(app.includes("BifrostNative"), "native WebView bridge is missing");
 assert(app.includes("extractFromControlledFrame"), "same-origin extraction path is missing");
@@ -34,5 +37,7 @@ assert(app.includes("PAGE_HISTORY_KEY"), "recent page persistence is missing");
 assert(css.includes(".phone-shell"), "phone-first shell styling is missing");
 assert(css.includes(".mobile-tab-item"), "mobile tab styling is missing");
 assert(css.includes(".recent-page-item"), "recent page styling is missing");
+assert(css.includes(".bifrost-badge"), "BIFROST verdict badge styling is missing");
+assert(css.includes('data-tools="open"'), "opt-in tools drawer styling is missing");
 
 console.log("[bifrost-browser] smoke ok");
