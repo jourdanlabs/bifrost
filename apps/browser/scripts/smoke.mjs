@@ -19,6 +19,7 @@ assert(html.includes("mobileTabList"), "mobile tab drawer is missing");
 assert(html.includes("receiptHistoryList"), "receipt history panel is missing");
 assert(html.includes("recentPagesList"), "recent pages panel is missing");
 assert(html.includes("clearLocalDataButton"), "local data clear control is missing");
+assert(html.includes("Tracker shield"), "tracker shield setting is missing");
 assert(app.includes("runPipeline"), "browser must call COSMIC-lite pipeline");
 assert(app.includes("BifrostNative"), "native WebView bridge is missing");
 assert(app.includes("extractFromControlledFrame"), "same-origin extraction path is missing");

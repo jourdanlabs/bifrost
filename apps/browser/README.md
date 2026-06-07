@@ -28,6 +28,7 @@ This package ships the web workbench for the browser app:
 - local recent-page history with one-tap reopen
 - local-first settings surface with clear-data control
 - native browser permission requests denied by default
+- native tracker/adtech blocking for obvious tracking hosts
 - desktop browser layout with workspace sidebar, tab strip, page viewport, and
   right-side verification inspector
 
@@ -54,6 +55,9 @@ app's one-BrowserView-per-external-tab behavior.
 The iOS carrier blocks non-http/https native navigations and uses the same
 assistant-answer extraction strategy as the desktop carrier.
 
+The iOS carrier also installs a WebKit content-rule list that blocks obvious
+tracker and adtech hosts inside native page views.
+
 ## Native macOS App
 
 The macOS target is an Electron browser shell at `desktop/`.
@@ -72,6 +76,8 @@ The macOS target is an Electron browser shell at `desktop/`.
   `NATIVE WEBVIEW` status
 - native permission prompts are denied by default
 - unsafe non-http/https native navigations are blocked
+- obvious tracker and adtech requests are blocked with Electron's native
+  request interception
 - extraction prefers the latest visible assistant/response block before falling
   back to generic visible text
 

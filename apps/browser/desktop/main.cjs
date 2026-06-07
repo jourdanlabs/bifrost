@@ -5,6 +5,23 @@ let mainWindow = null;
 let activeTabId = null;
 const pageViews = new Map();
 const viewBounds = new Map();
+const blockedTrackerHosts = [
+  "adservice.google.com",
+  "ads.linkedin.com",
+  "analytics.google.com",
+  "connect.facebook.net",
+  "doubleclick.net",
+  "facebook.com",
+  "google-analytics.com",
+  "googlesyndication.com",
+  "googletagmanager.com",
+  "hotjar.com",
+  "mixpanel.com",
+  "outbrain.com",
+  "scorecardresearch.com",
+  "segment.io",
+  "taboola.com",
+];
 
 const extractionScript = `
 (function () {
@@ -234,6 +251,15 @@ function validatedUrl(rawUrl) {
   return url.toString();
 }
 
+function isTrackerUrl(rawUrl) {
+  try {
+    const hostname = new URL(String(rawUrl || "")).hostname.replace(/^www\./, "").toLowerCase();
+    return blockedTrackerHosts.some((blocked) => hostname === blocked || hostname.endsWith(`.${blocked}`));
+  } catch {
+    return false;
+  }
+}
+
 function stateFor(tabId, patch = {}) {
   const view = pageViews.get(tabId);
   return {
@@ -369,6 +395,9 @@ function configureSecurity() {
     callback(false);
   });
   session.defaultSession.setPermissionCheckHandler(() => false);
+  session.defaultSession.webRequest.onBeforeRequest((details, callback) => {
+    callback({ cancel: isTrackerUrl(details.url) });
+  });
 }
 
 app.whenReady().then(() => {

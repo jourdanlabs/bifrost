@@ -8,10 +8,12 @@ class BifrostBridgeViewController: CAPBridgeViewController, WKNavigationDelegate
     private var pendingOpenCallbacks: [String: String] = [:]
     private var activeTabId: String = "tab_default"
     private var lastFrame: CGRect = .zero
+    private var trackerRuleList: WKContentRuleList?
 
     override func viewDidLoad() {
         super.viewDidLoad()
         NSLog("BIFROST native bridge controller loaded")
+        prepareTrackerRuleList()
     }
 
     override func viewDidAppear(_ animated: Bool) {
@@ -210,9 +212,37 @@ class BifrostBridgeViewController: CAPBridgeViewController, WKNavigationDelegate
         nativeWebView.scrollView.contentInsetAdjustmentBehavior = .never
         nativeWebView.backgroundColor = .white
         nativeWebView.isOpaque = true
+        installTrackerRules(on: nativeWebView)
         view.addSubview(nativeWebView)
         targetWebViews[tabId] = nativeWebView
         return nativeWebView
+    }
+
+    private func prepareTrackerRuleList() {
+        WKContentRuleListStore.default().compileContentRuleList(
+            forIdentifier: "BifrostTrackerRules",
+            encodedContentRuleList: Self.trackerRuleListJson
+        ) { ruleList, error in
+            if let error {
+                NSLog("BIFROST tracker rule compile failed: \(error.localizedDescription)")
+                return
+            }
+            guard let ruleList else {
+                return
+            }
+            DispatchQueue.main.async {
+                self.trackerRuleList = ruleList
+                for webView in self.targetWebViews.values {
+                    webView.configuration.userContentController.add(ruleList)
+                }
+            }
+        }
+    }
+
+    private func installTrackerRules(on webView: WKWebView) {
+        if let trackerRuleList {
+            webView.configuration.userContentController.add(trackerRuleList)
+        }
     }
 
     private func hideTargetWebViews(except visibleTabId: String?) {
@@ -425,6 +455,25 @@ class BifrostBridgeViewController: CAPBridgeViewController, WKNavigationDelegate
       };
       window.dispatchEvent(new CustomEvent("bifrost-native-ready"));
     })();
+    """
+
+    private static let trackerRuleListJson = """
+    [
+      { "trigger": { "url-filter": ".*adservice.google.com.*" }, "action": { "type": "block" } },
+      { "trigger": { "url-filter": ".*ads.linkedin.com.*" }, "action": { "type": "block" } },
+      { "trigger": { "url-filter": ".*analytics.google.com.*" }, "action": { "type": "block" } },
+      { "trigger": { "url-filter": ".*connect.facebook.net.*" }, "action": { "type": "block" } },
+      { "trigger": { "url-filter": ".*doubleclick.net.*" }, "action": { "type": "block" } },
+      { "trigger": { "url-filter": ".*google-analytics.com.*" }, "action": { "type": "block" } },
+      { "trigger": { "url-filter": ".*googlesyndication.com.*" }, "action": { "type": "block" } },
+      { "trigger": { "url-filter": ".*googletagmanager.com.*" }, "action": { "type": "block" } },
+      { "trigger": { "url-filter": ".*hotjar.com.*" }, "action": { "type": "block" } },
+      { "trigger": { "url-filter": ".*mixpanel.com.*" }, "action": { "type": "block" } },
+      { "trigger": { "url-filter": ".*outbrain.com.*" }, "action": { "type": "block" } },
+      { "trigger": { "url-filter": ".*scorecardresearch.com.*" }, "action": { "type": "block" } },
+      { "trigger": { "url-filter": ".*segment.io.*" }, "action": { "type": "block" } },
+      { "trigger": { "url-filter": ".*taboola.com.*" }, "action": { "type": "block" } }
+    ]
     """
 
     private static let extractionScript = """
