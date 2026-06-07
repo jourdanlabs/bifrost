@@ -27,7 +27,8 @@ This package ships the web workbench for the browser app:
 - local sealed receipt history with copy/export actions
 - local recent-page history with one-tap reopen
 - local-first settings surface with clear-data control
-- native browser permission requests denied by default
+- native browser permission requests denied by default, with trusted-auth
+  passkey/WebAuthn and storage access carved out for OAuth pages
 - native tracker/adtech blocking for obvious tracking hosts
 - desktop browser layout with workspace sidebar, tab strip, page viewport, and
   right-side verification inspector
@@ -74,7 +75,8 @@ The macOS target is an Electron browser shell at `desktop/`.
   COSMIC-lite verdict -> sealed receipt
 - current external page path: ChatGPT opens inside the native BrowserView with
   `NATIVE WEBVIEW` status
-- native permission prompts are denied by default
+- native permission prompts are denied by default, with passkey/WebAuthn and
+  auth storage access allowed only for trusted OAuth hosts
 - unsafe non-http/https native navigations are blocked
 - obvious tracker and adtech requests are blocked with Electron's native
   request interception

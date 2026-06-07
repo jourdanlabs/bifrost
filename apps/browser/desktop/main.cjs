@@ -22,6 +22,23 @@ const blockedTrackerHosts = [
   "segment.io",
   "taboola.com",
 ];
+const trustedAuthHosts = [
+  "accounts.google.com",
+  "appleid.apple.com",
+  "auth.openai.com",
+  "chatgpt.com",
+  "claude.ai",
+  "console.anthropic.com",
+  "gemini.google.com",
+  "login.live.com",
+  "login.microsoftonline.com",
+];
+const trustedAuthPermissions = new Set([
+  "publickey-credentials-create",
+  "publickey-credentials-get",
+  "storage-access",
+  "top-level-storage-access",
+]);
 
 const extractionScript = `
 (function () {
@@ -260,6 +277,41 @@ function isTrackerUrl(rawUrl) {
   }
 }
 
+function hostnameFrom(rawUrl) {
+  try {
+    return new URL(String(rawUrl || "")).hostname.replace(/^www\./, "").toLowerCase();
+  } catch {
+    return "";
+  }
+}
+
+function isTrustedAuthHost(hostname) {
+  return trustedAuthHosts.some((trusted) => hostname === trusted || hostname.endsWith(`.${trusted}`));
+}
+
+function isTrustedAuthOrigin(rawUrl) {
+  return isTrustedAuthHost(hostnameFrom(rawUrl));
+}
+
+function webContentsUrl(webContents) {
+  try {
+    return webContents?.getURL?.() || "";
+  } catch {
+    return "";
+  }
+}
+
+function shouldAllowAuthPermission(webContents, permission, details = {}) {
+  if (!trustedAuthPermissions.has(permission)) return false;
+  const urls = [
+    details.requestingUrl,
+    details.embeddingOrigin,
+    details.requestingOrigin,
+    webContentsUrl(webContents),
+  ].filter(Boolean);
+  return urls.some(isTrustedAuthOrigin);
+}
+
 function stateFor(tabId, patch = {}) {
   const view = pageViews.get(tabId);
   return {
@@ -391,10 +443,15 @@ ipcMain.handle("bifrost:extract-visible-answer", async (_event, target = {}) => 
 });
 
 function configureSecurity() {
-  session.defaultSession.setPermissionRequestHandler((_webContents, _permission, callback) => {
-    callback(false);
+  session.defaultSession.setPermissionRequestHandler((webContents, permission, callback, details) => {
+    callback(shouldAllowAuthPermission(webContents, permission, details));
   });
-  session.defaultSession.setPermissionCheckHandler(() => false);
+  session.defaultSession.setPermissionCheckHandler((webContents, permission, requestingOrigin, details) => {
+    return shouldAllowAuthPermission(webContents, permission, {
+      ...(details || {}),
+      requestingOrigin,
+    });
+  });
   session.defaultSession.webRequest.onBeforeRequest((details, callback) => {
     callback({ cancel: isTrackerUrl(details.url) });
   });
