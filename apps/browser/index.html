@@ -20,8 +20,8 @@
           <span class="eyebrow">VERIFIED BROWSER</span>
         </div>
         <div class="top-actions">
-          <button type="button" aria-label="Refresh page">↻</button>
-          <button type="button" aria-label="Tabs">▢</button>
+          <button id="reloadTopButton" type="button" aria-label="Refresh page">↻</button>
+          <button id="tabsTopButton" type="button" aria-label="Tabs">▢</button>
         </div>
       </header>
 
@@ -48,6 +48,11 @@
       </aside>
 
       <section class="browser-chrome" aria-label="Browser controls">
+        <div class="nav-buttons" aria-label="Navigation controls">
+          <button id="backButton" type="button" class="ghost" aria-label="Back">‹</button>
+          <button id="forwardButton" type="button" class="ghost" aria-label="Forward">›</button>
+          <button id="reloadButton" type="button" class="ghost" aria-label="Reload">↻</button>
+        </div>
         <div class="address-row">
           <span class="lock-icon">⌘</span>
           <input id="urlInput" type="url" spellcheck="false" value="bifrost://lab" />
@@ -61,10 +66,8 @@
         </div>
       </section>
 
-      <section class="desktop-tabs" aria-label="Browser tabs">
-        <button type="button" class="active"><span>●</span> Active page</button>
-        <button type="button"><span>✦</span> Verification notes</button>
-        <button type="button" class="add-tab">+</button>
+      <section class="desktop-tabs" id="desktopTabs" aria-label="Browser tabs">
+        <button id="newTabButton" type="button" class="add-tab" aria-label="New tab">+</button>
       </section>
 
       <section class="browser-viewport">
@@ -131,10 +134,26 @@
           </div>
         </section>
 
+        <section class="mobile-tab-card drawer-card" id="mobileTabCard">
+          <div class="card-head">
+            <span class="eyebrow">TABS</span>
+            <button id="mobileNewTabButton" type="button" class="ghost">New</button>
+          </div>
+          <div id="mobileTabList" class="mobile-tab-list"></div>
+        </section>
+
+        <section class="history-card drawer-card" id="receiptHistoryCard">
+          <div class="card-head">
+            <span class="eyebrow">LOCAL HISTORY</span>
+            <strong id="receiptHistoryCount">0 receipts</strong>
+          </div>
+          <div id="receiptHistoryList" class="receipt-history-list"></div>
+        </section>
+
         <nav class="bottom-nav" aria-label="Browser sections">
           <button type="button" id="browseButton">Browse</button>
           <button type="button" class="active">Verified</button>
-          <button type="button">Tabs</button>
+          <button type="button" id="mobileTabsButton">Tabs</button>
           <button type="button">Settings</button>
         </nav>
       </aside>

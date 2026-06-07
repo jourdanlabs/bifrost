@@ -14,6 +14,7 @@
     "category": "public.app-category.productivity",
     "icon": "desktop/assets/bifrost-browser.icns",
     "target": ["dmg"],
-    "identity": null
+    "hardenedRuntime": true,
+    "identity": "Leland Jourdan II (VMM5SZ8V5Y)"
   }
 }

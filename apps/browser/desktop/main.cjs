@@ -2,8 +2,9 @@ const { app, BrowserView, BrowserWindow, ipcMain } = require("electron");
 const path = require("node:path");
 
 let mainWindow = null;
-let pageView = null;
-let lastBounds = null;
+let activeTabId = null;
+const pageViews = new Map();
+const viewBounds = new Map();
 
 const extractionScript = `
 (function () {
@@ -76,29 +77,80 @@ function createMainWindow() {
   mainWindow.loadFile(distPath("index.html"), { query: { shell: "desktop" } });
   mainWindow.once("ready-to-show", () => mainWindow?.show());
   mainWindow.on("closed", () => {
+    for (const view of pageViews.values()) {
+      if (!view.webContents.isDestroyed()) view.webContents.destroy();
+    }
+    pageViews.clear();
+    viewBounds.clear();
     mainWindow = null;
-    pageView = null;
-    lastBounds = null;
+    activeTabId = null;
   });
   mainWindow.on("resize", () => {
-    if (pageView && lastBounds) pageView.setBounds(clampBounds(lastBounds));
+    if (!activeTabId) return;
+    const view = pageViews.get(activeTabId);
+    const bounds = viewBounds.get(activeTabId);
+    if (view && bounds) view.setBounds(clampBounds(bounds));
   });
 }
 
-function ensurePageView() {
+function ensurePageView(tabId) {
   if (!mainWindow) throw new Error("BIFROST Browser window is not ready.");
-  if (pageView) return pageView;
+  const existing = pageViews.get(tabId);
+  if (existing && !existing.webContents.isDestroyed()) return existing;
 
-  pageView = new BrowserView({
+  const view = new BrowserView({
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
     },
   });
-  mainWindow.addBrowserView(pageView);
-  pageView.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
-  return pageView;
+  pageViews.set(tabId, view);
+  view.webContents.setWindowOpenHandler(({ url }) => {
+    void view.webContents.loadURL(url).catch(() => {});
+    return { action: "deny" };
+  });
+  view.webContents.on("did-start-loading", () => sendState(tabId, { loading: true }));
+  view.webContents.on("did-stop-loading", () => sendState(tabId, { loading: false }));
+  view.webContents.on("did-finish-load", () => sendState(tabId));
+  view.webContents.on("did-navigate", () => sendState(tabId));
+  view.webContents.on("did-navigate-in-page", () => sendState(tabId));
+  view.webContents.on("page-title-updated", () => sendState(tabId));
+  view.webContents.on("did-fail-load", (_event, _code, description) => {
+    sendState(tabId, { loading: false, title: description || "Load failed" });
+  });
+  return view;
+}
+
+function attachView(tabId, frame) {
+  if (!mainWindow) throw new Error("BIFROST Browser window is not ready.");
+  const view = ensurePageView(tabId);
+  detachViewsExcept(tabId);
+  if (!mainWindow.getBrowserViews().includes(view)) {
+    mainWindow.addBrowserView(view);
+  }
+  const bounds = frame ? clampBounds(frame) : clampBounds(viewBounds.get(tabId) || {});
+  viewBounds.set(tabId, bounds);
+  view.setBounds(bounds);
+  activeTabId = tabId;
+  return view;
+}
+
+function detachViewsExcept(tabId) {
+  if (!mainWindow) return;
+  for (const [id, view] of pageViews.entries()) {
+    if (id !== tabId && mainWindow.getBrowserViews().includes(view)) {
+      mainWindow.removeBrowserView(view);
+    }
+  }
+}
+
+function detachAllViews() {
+  if (!mainWindow) return;
+  for (const view of mainWindow.getBrowserViews()) {
+    mainWindow.removeBrowserView(view);
+  }
+  activeTabId = null;
 }
 
 function clampBounds(frame) {
@@ -119,51 +171,130 @@ function validatedUrl(rawUrl) {
   return url.toString();
 }
 
-function waitForPageLoad(view, timeoutMs = 30000) {
-  return new Promise((resolve, reject) => {
-    let settled = false;
-    const settle = (fn, value) => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      view.webContents.removeListener("did-finish-load", onFinish);
-      view.webContents.removeListener("did-fail-load", onFail);
-      fn(value);
-    };
-    const onFinish = () => settle(resolve, undefined);
-    const onFail = (_event, _code, description) => settle(reject, new Error(description || "Native page load failed."));
-    const timer = setTimeout(() => settle(resolve, undefined), timeoutMs);
-    view.webContents.once("did-finish-load", onFinish);
-    view.webContents.once("did-fail-load", onFail);
-  });
+function stateFor(tabId, patch = {}) {
+  const view = pageViews.get(tabId);
+  return {
+    tabId,
+    url: view && !view.webContents.isDestroyed() ? view.webContents.getURL() : "",
+    title: view && !view.webContents.isDestroyed() ? view.webContents.getTitle() : "",
+    canGoBack: view && !view.webContents.isDestroyed() ? canGoBack(view) : false,
+    canGoForward: view && !view.webContents.isDestroyed() ? canGoForward(view) : false,
+    loading: view && !view.webContents.isDestroyed() ? view.webContents.isLoading() : false,
+    ...patch,
+  };
+}
+
+function canGoBack(view) {
+  return view.webContents.navigationHistory?.canGoBack?.() ?? view.webContents.canGoBack();
+}
+
+function canGoForward(view) {
+  return view.webContents.navigationHistory?.canGoForward?.() ?? view.webContents.canGoForward();
+}
+
+function goBack(view) {
+  if (view.webContents.navigationHistory?.canGoBack?.()) {
+    view.webContents.navigationHistory.goBack();
+    return;
+  }
+  if (view.webContents.canGoBack()) view.webContents.goBack();
+}
+
+function goForward(view) {
+  if (view.webContents.navigationHistory?.canGoForward?.()) {
+    view.webContents.navigationHistory.goForward();
+    return;
+  }
+  if (view.webContents.canGoForward()) view.webContents.goForward();
+}
+
+function sendState(tabId, patch = {}) {
+  const payload = stateFor(tabId, patch);
+  if (mainWindow && !mainWindow.webContents.isDestroyed()) {
+    mainWindow.webContents.send("bifrost:navigation-state", payload);
+  }
+  return payload;
+}
+
+function targetTabId(target) {
+  return target?.tabId || activeTabId || "tab_default";
 }
 
 ipcMain.handle("bifrost:open-url", async (_event, target) => {
+  const tabId = targetTabId(target);
   const url = validatedUrl(target?.url);
-  const view = ensurePageView();
-  lastBounds = target?.frame || null;
-  view.setBounds(clampBounds(lastBounds || {}));
-  void view.webContents.loadURL(url).catch(() => {});
-  return {
-    opened: true,
-    url: view.webContents.getURL(),
-    title: view.webContents.getTitle(),
-  };
+  const view = attachView(tabId, target?.frame);
+  void view.webContents.loadURL(url).catch((error) => {
+    sendState(tabId, { loading: false, title: error.message || "Load failed" });
+  });
+  return sendState(tabId, { opened: true, url, loading: true });
 });
 
-ipcMain.handle("bifrost:close-url", async () => {
-  if (mainWindow && pageView) {
-    mainWindow.removeBrowserView(pageView);
-    pageView.webContents.destroy();
+ipcMain.handle("bifrost:activate-tab", async (_event, target = {}) => {
+  const tabId = targetTabId(target);
+  if (target.visible === false) {
+    detachAllViews();
+    return { tabId, closed: false, loading: false };
   }
-  pageView = null;
-  lastBounds = null;
-  return { closed: true };
+  const view = pageViews.get(tabId);
+  if (!view) return { tabId, opened: false, loading: false };
+  attachView(tabId, target.frame);
+  return stateFor(tabId, { opened: true });
 });
 
-ipcMain.handle("bifrost:extract-visible-answer", async () => {
-  if (!pageView) throw new Error("No native page is open in BIFROST Browser.");
-  const payload = await pageView.webContents.executeJavaScript(extractionScript, true);
+ipcMain.handle("bifrost:update-frame", async (_event, target = {}) => {
+  const tabId = targetTabId(target);
+  const view = pageViews.get(tabId);
+  if (!view || activeTabId !== tabId) return stateFor(tabId);
+  const bounds = clampBounds(target.frame || {});
+  viewBounds.set(tabId, bounds);
+  view.setBounds(bounds);
+  return stateFor(tabId);
+});
+
+ipcMain.handle("bifrost:close-url", async (_event, target = {}) => {
+  const tabId = typeof target === "string" ? target : targetTabId(target);
+  const view = pageViews.get(tabId);
+  if (mainWindow && view && mainWindow.getBrowserViews().includes(view)) {
+    mainWindow.removeBrowserView(view);
+  }
+  if (view && !view.webContents.isDestroyed()) view.webContents.destroy();
+  pageViews.delete(tabId);
+  viewBounds.delete(tabId);
+  if (activeTabId === tabId) activeTabId = null;
+  return { tabId, closed: true, loading: false };
+});
+
+ipcMain.handle("bifrost:go-back", async (_event, target = {}) => {
+  const tabId = targetTabId(target);
+  const view = pageViews.get(tabId);
+  if (view) goBack(view);
+  return stateFor(tabId);
+});
+
+ipcMain.handle("bifrost:go-forward", async (_event, target = {}) => {
+  const tabId = targetTabId(target);
+  const view = pageViews.get(tabId);
+  if (view) goForward(view);
+  return stateFor(tabId);
+});
+
+ipcMain.handle("bifrost:reload", async (_event, target = {}) => {
+  const tabId = targetTabId(target);
+  const view = pageViews.get(tabId);
+  view?.webContents.reload();
+  return stateFor(tabId, { loading: true });
+});
+
+ipcMain.handle("bifrost:get-state", async (_event, target = {}) => {
+  return stateFor(targetTabId(target));
+});
+
+ipcMain.handle("bifrost:extract-visible-answer", async (_event, target = {}) => {
+  const tabId = targetTabId(target);
+  const view = pageViews.get(tabId);
+  if (!view || view.webContents.isDestroyed()) throw new Error("No native page is open in BIFROST Browser.");
+  const payload = await view.webContents.executeJavaScript(extractionScript, true);
   if (!payload?.answer?.trim()) {
     throw new Error("BIFROST could not find a visible assistant answer on this page.");
   }

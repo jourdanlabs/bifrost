@@ -21,6 +21,9 @@ This package ships the web workbench for the browser app:
 - deterministic COSMIC-lite verification
 - verdict panel and sealed JSON receipt
 - explicit extraction failure state for pages the web workbench cannot inspect
+- real browser navigation controls: back, forward, reload, URL normalization
+- tab state shared across desktop and mobile shells
+- local sealed receipt history with copy/export actions
 - desktop browser layout with workspace sidebar, tab strip, page viewport, and
   right-side verification inspector
 
@@ -40,6 +43,11 @@ The native iOS app uses a Swift WKWebView bridge for cross-origin page loading
 and visible-answer extraction. When the bridge is absent, BIFROST fails closed
 instead of pretending it can read the page.
 
+Mobile uses the shared browser state and exposes tabs through the verification
+drawer. iOS currently uses one active native WKWebView while the shared UI owns
+the tab model; switching external tabs may reload that target. The desktop app
+uses one BrowserView per external tab.
+
 ## Native macOS App
 
 The macOS target is an Electron browser shell at `desktop/`.
@@ -50,6 +58,8 @@ The macOS target is an Electron browser shell at `desktop/`.
 - native carrier: Electron BrowserWindow + BrowserView
 - desktop layout: left workspace rail, top address controls, tab strip, central
   page viewport, right verification inspector
+- external tabs preserve separate BrowserViews
+- native navigation emits URL/title/back-forward/loading state to the renderer
 - current verified path: controlled AI lab -> extract visible answer ->
   COSMIC-lite verdict -> sealed receipt
 - current external page path: ChatGPT opens inside the native BrowserView with
@@ -60,13 +70,30 @@ The macOS target is an Electron browser shell at `desktop/`.
 A native wrapper can provide:
 
 ```ts
+type Frame = { x: number; y: number; width: number; height: number };
+type NativeState = {
+  tabId?: string;
+  url?: string;
+  title?: string;
+  canGoBack?: boolean;
+  canGoForward?: boolean;
+  loading?: boolean;
+};
+
 window.BifrostNative = {
   openUrl(target: string | {
+    tabId?: string;
     url: string;
     frame?: { x: number; y: number; width: number; height: number };
   }): void | Promise<void>,
-  closeUrl(): void | Promise<void>,
-  extractVisibleAnswer(): {
+  closeUrl(target?: { tabId?: string } | string): void | Promise<void>,
+  activateTab(target: { tabId: string; frame?: Frame; visible?: boolean }): void | Promise<void>,
+  updateFrame(target: { tabId: string; frame: Frame }): void | Promise<void>,
+  goBack(target?: { tabId: string }): void | Promise<void>,
+  goForward(target?: { tabId: string }): void | Promise<void>,
+  reload(target?: { tabId: string }): void | Promise<void>,
+  getState(target?: { tabId: string }): NativeState | Promise<NativeState>,
+  extractVisibleAnswer(target?: { tabId: string }): {
     url: string;
     title?: string;
     prompt?: string;

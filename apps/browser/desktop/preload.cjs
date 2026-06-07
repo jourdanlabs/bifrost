@@ -6,12 +6,34 @@ contextBridge.exposeInMainWorld("BifrostNative", {
     const payload = typeof target === "string" ? { url: target } : target || {};
     return ipcRenderer.invoke("bifrost:open-url", payload);
   },
-  closeUrl() {
-    return ipcRenderer.invoke("bifrost:close-url");
+  closeUrl(target) {
+    return ipcRenderer.invoke("bifrost:close-url", target || {});
   },
-  extractVisibleAnswer() {
-    return ipcRenderer.invoke("bifrost:extract-visible-answer");
+  activateTab(target) {
+    return ipcRenderer.invoke("bifrost:activate-tab", target || {});
   },
+  updateFrame(target) {
+    return ipcRenderer.invoke("bifrost:update-frame", target || {});
+  },
+  goBack(target) {
+    return ipcRenderer.invoke("bifrost:go-back", target || {});
+  },
+  goForward(target) {
+    return ipcRenderer.invoke("bifrost:go-forward", target || {});
+  },
+  reload(target) {
+    return ipcRenderer.invoke("bifrost:reload", target || {});
+  },
+  getState(target) {
+    return ipcRenderer.invoke("bifrost:get-state", target || {});
+  },
+  extractVisibleAnswer(target) {
+    return ipcRenderer.invoke("bifrost:extract-visible-answer", target || {});
+  },
+});
+
+ipcRenderer.on("bifrost:navigation-state", (_event, payload) => {
+  window.dispatchEvent(new CustomEvent("bifrost-native-state", { detail: payload }));
 });
 
 window.addEventListener("DOMContentLoaded", () => {

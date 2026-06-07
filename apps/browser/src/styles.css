@@ -151,6 +151,20 @@ input {
   background: var(--surface-low);
 }
 
+.nav-buttons {
+  display: none;
+}
+
+.nav-buttons button {
+  display: grid;
+  width: 34px;
+  min-height: 34px;
+  place-items: center;
+  border-radius: 999px;
+  font-size: 1rem;
+  line-height: 1;
+}
+
 .address-row {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
@@ -491,6 +505,111 @@ iframe {
   margin-top: 0.68rem;
 }
 
+.receipt-history-list {
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 0.55rem;
+}
+
+.mobile-tab-list {
+  display: grid;
+  gap: 0.42rem;
+  margin-top: 0.55rem;
+}
+
+.mobile-tab-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  min-height: 42px;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.48rem 0.56rem;
+  border: 1px solid rgba(199, 196, 215, 0.72);
+  border-radius: 12px;
+  background: var(--surface-low);
+  color: var(--text);
+}
+
+.mobile-tab-item.active {
+  border-color: rgba(70, 72, 212, 0.3);
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+
+.mobile-tab-item strong,
+.mobile-tab-item span {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mobile-tab-item strong {
+  font-size: 0.78rem;
+}
+
+.mobile-tab-item span {
+  color: var(--dim);
+  font-size: 0.68rem;
+}
+
+.mobile-tab-close {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border-radius: 999px;
+}
+
+.receipt-history-empty,
+.receipt-history-item {
+  padding: 0.64rem;
+  border: 1px solid rgba(199, 196, 215, 0.72);
+  border-radius: 12px;
+  background: var(--surface-low);
+}
+
+.receipt-history-empty {
+  color: var(--dim);
+  font-size: 0.78rem;
+}
+
+.receipt-history-item {
+  display: grid;
+  gap: 0.36rem;
+}
+
+.receipt-history-item strong,
+.receipt-history-item span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.receipt-history-item strong {
+  color: var(--text);
+  font-size: 0.78rem;
+}
+
+.receipt-history-item span {
+  color: var(--dim);
+  font-size: 0.68rem;
+}
+
+.receipt-history-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.34rem;
+}
+
+.receipt-history-actions button {
+  min-height: 28px;
+  border-radius: 8px;
+  font-size: 0.68rem;
+}
+
 .bottom-nav {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -660,12 +779,29 @@ html.bifrost-desktop .desktop-nav button:hover {
 
 html.bifrost-desktop .browser-chrome {
   grid-area: chrome;
-  grid-template-columns: minmax(420px, 1fr) auto;
+  grid-template-columns: auto minmax(420px, 1fr) auto;
   align-items: center;
   min-height: 58px;
   padding: 0.55rem 0.75rem;
   border-color: #c7c4d7;
   background: #f7f9fb;
+}
+
+html.bifrost-desktop .nav-buttons {
+  display: flex;
+  gap: 0.28rem;
+}
+
+html.bifrost-desktop .nav-buttons button {
+  width: 30px;
+  min-height: 30px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.62);
+}
+
+html.bifrost-desktop .nav-buttons button:disabled {
+  cursor: default;
+  opacity: 0.42;
 }
 
 html.bifrost-desktop .address-row {
@@ -730,6 +866,33 @@ html.bifrost-desktop .desktop-tabs button {
   font-size: 0.82rem;
 }
 
+html.bifrost-desktop .desktop-tabs button span {
+  flex: 0 0 auto;
+}
+
+html.bifrost-desktop .desktop-tabs button .tab-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+html.bifrost-desktop .desktop-tabs button .tab-close {
+  display: grid;
+  width: 18px;
+  height: 18px;
+  place-items: center;
+  border-radius: 999px;
+  color: #767586;
+  font-size: 0.8rem;
+}
+
+html.bifrost-desktop .desktop-tabs button .tab-close:hover {
+  background: #e0e3e5;
+  color: var(--text);
+}
+
 html.bifrost-desktop .desktop-tabs button.active {
   border-color: #c7c4d7;
   background: #ffffff;
@@ -786,6 +949,10 @@ html.bifrost-desktop .drawer-card {
 
 html.bifrost-desktop .drawer-card {
   max-height: none;
+}
+
+html.bifrost-desktop .mobile-tab-card {
+  display: none !important;
 }
 
 html.bifrost-desktop .bottom-nav {

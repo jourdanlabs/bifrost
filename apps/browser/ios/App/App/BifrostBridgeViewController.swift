@@ -6,6 +6,7 @@ import WebKit
 class BifrostBridgeViewController: CAPBridgeViewController, WKNavigationDelegate, WKScriptMessageHandler {
     private var targetWebView: WKWebView?
     private var pendingOpenCallbackId: String?
+    private var activeTabId: String = "tab_default"
     private var lastFrame: CGRect = .zero
 
     override func viewDidLoad() {
@@ -63,8 +64,20 @@ class BifrostBridgeViewController: CAPBridgeViewController, WKNavigationDelegate
         switch method {
         case "openUrl":
             openUrl(id: id, body: body)
+        case "activateTab":
+            activateTab(id: id, body: body)
+        case "updateFrame":
+            updateFrame(id: id, body: body)
         case "closeUrl":
             closeUrl(id: id)
+        case "goBack":
+            goBack(id: id)
+        case "goForward":
+            goForward(id: id)
+        case "reload":
+            reload(id: id)
+        case "getState":
+            resolve(id: id, payload: statePayload())
         case "extractVisibleAnswer":
             extractVisibleAnswer(id: id)
         default:
@@ -80,6 +93,7 @@ class BifrostBridgeViewController: CAPBridgeViewController, WKNavigationDelegate
             return
         }
 
+        activeTabId = body["tabId"] as? String ?? activeTabId
         NSLog("BIFROST native opening URL: \(rawUrl)")
         let frame = frameFrom(body["frame"]) ?? defaultTargetFrame()
         lastFrame = frame
@@ -90,14 +104,65 @@ class BifrostBridgeViewController: CAPBridgeViewController, WKNavigationDelegate
         view.bringSubviewToFront(nativeWebView)
 
         pendingOpenCallbackId = id
+        sendState(["loading": true, "url": rawUrl, "opened": true])
         nativeWebView.load(URLRequest(url: url))
+    }
+
+    private func activateTab(id: String, body: [String: Any]) {
+        activeTabId = body["tabId"] as? String ?? activeTabId
+        if let visible = body["visible"] as? Bool, visible == false {
+            targetWebView?.isHidden = true
+            resolve(id: id, payload: statePayload(["closed": false, "loading": false]))
+            sendState(["loading": false])
+            return
+        }
+
+        if let frame = frameFrom(body["frame"]) {
+            lastFrame = frame
+            targetWebView?.frame = frame
+        }
+        targetWebView?.isHidden = false
+        if let targetWebView {
+            view.bringSubviewToFront(targetWebView)
+        }
+        resolve(id: id, payload: statePayload(["opened": true]))
+        sendState(["opened": true])
+    }
+
+    private func updateFrame(id: String, body: [String: Any]) {
+        activeTabId = body["tabId"] as? String ?? activeTabId
+        if let frame = frameFrom(body["frame"]) {
+            lastFrame = frame
+            targetWebView?.frame = frame
+        }
+        resolve(id: id, payload: statePayload())
     }
 
     private func closeUrl(id: String) {
         pendingOpenCallbackId = nil
         targetWebView?.stopLoading()
         targetWebView?.isHidden = true
-        resolve(id: id, payload: ["closed": true])
+        resolve(id: id, payload: statePayload(["closed": true, "loading": false]))
+        sendState(["closed": true, "loading": false])
+    }
+
+    private func goBack(id: String) {
+        if targetWebView?.canGoBack == true {
+            targetWebView?.goBack()
+        }
+        resolve(id: id, payload: statePayload())
+    }
+
+    private func goForward(id: String) {
+        if targetWebView?.canGoForward == true {
+            targetWebView?.goForward()
+        }
+        resolve(id: id, payload: statePayload())
+    }
+
+    private func reload(id: String) {
+        targetWebView?.reload()
+        resolve(id: id, payload: statePayload(["loading": true]))
     }
 
     private func extractVisibleAnswer(id: String) {
@@ -182,22 +247,21 @@ class BifrostBridgeViewController: CAPBridgeViewController, WKNavigationDelegate
     }
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        sendState(["loading": false, "opened": true])
         guard let id = pendingOpenCallbackId else {
             return
         }
         pendingOpenCallbackId = nil
-        resolve(id: id, payload: [
-            "url": webView.url?.absoluteString ?? "",
-            "title": webView.title ?? "",
-            "opened": true
-        ])
+        resolve(id: id, payload: statePayload(["opened": true, "loading": false]))
     }
 
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+        sendState(["loading": false, "title": error.localizedDescription])
         rejectPendingOpen(error)
     }
 
     func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+        sendState(["loading": false, "title": error.localizedDescription])
         rejectPendingOpen(error)
     }
 
@@ -215,6 +279,33 @@ class BifrostBridgeViewController: CAPBridgeViewController, WKNavigationDelegate
 
     private func reject(id: String, message: String) {
         callback(functionName: "__bifrostNativeReject", id: id, payload: ["message": message])
+    }
+
+    private func statePayload(_ patch: [String: Any] = [:]) -> [String: Any] {
+        var payload: [String: Any] = [
+            "tabId": activeTabId,
+            "url": targetWebView?.url?.absoluteString ?? "",
+            "title": targetWebView?.title ?? "",
+            "canGoBack": targetWebView?.canGoBack ?? false,
+            "canGoForward": targetWebView?.canGoForward ?? false,
+            "loading": targetWebView?.isLoading ?? false
+        ]
+        for (key, value) in patch {
+            payload[key] = value
+        }
+        return payload
+    }
+
+    private func sendState(_ patch: [String: Any] = [:]) {
+        guard let webView else {
+            return
+        }
+        let payload = statePayload(patch)
+        guard let data = try? JSONSerialization.data(withJSONObject: payload, options: []),
+              let json = String(data: data, encoding: .utf8) else {
+            return
+        }
+        webView.evaluateJavaScript("window.dispatchEvent(new CustomEvent('bifrost-native-state', { detail: \(json) }));")
     }
 
     private func callback(functionName: String, id: String, payload: [String: Any]) {
@@ -255,17 +346,36 @@ class BifrostBridgeViewController: CAPBridgeViewController, WKNavigationDelegate
         pending.delete(payload.id);
         entry.reject(new Error(payload.message || "BIFROST native bridge failed."));
       };
-      window.BifrostNative = {
+        window.BifrostNative = {
         __nativeBridge: true,
         openUrl: function (target) {
           if (typeof target === "string") return send("openUrl", { url: target });
           return send("openUrl", target || {});
         },
-        closeUrl: function () {
-          return send("closeUrl", {});
+        closeUrl: function (target) {
+          if (typeof target === "string") return send("closeUrl", { tabId: target });
+          return send("closeUrl", target || {});
         },
-        extractVisibleAnswer: function () {
-          return send("extractVisibleAnswer", {});
+        activateTab: function (target) {
+          return send("activateTab", target || {});
+        },
+        updateFrame: function (target) {
+          return send("updateFrame", target || {});
+        },
+        goBack: function (target) {
+          return send("goBack", target || {});
+        },
+        goForward: function (target) {
+          return send("goForward", target || {});
+        },
+        reload: function (target) {
+          return send("reload", target || {});
+        },
+        getState: function (target) {
+          return send("getState", target || {});
+        },
+        extractVisibleAnswer: function (target) {
+          return send("extractVisibleAnswer", target || {});
         }
       };
       window.dispatchEvent(new CustomEvent("bifrost-native-ready"));
