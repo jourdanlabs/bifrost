@@ -1,4 +1,4 @@
-const { app, BrowserView, BrowserWindow, ipcMain } = require("electron");
+const { app, BrowserView, BrowserWindow, ipcMain, session } = require("electron");
 const path = require("node:path");
 
 let mainWindow = null;
@@ -8,46 +8,93 @@ const viewBounds = new Map();
 
 const extractionScript = `
 (function () {
-  const selectors = [
+  const assistantSelectors = [
     "[data-bifrost-answer]",
     "[data-message-author-role='assistant']",
+    "[data-testid='assistant-message']",
     "[data-testid*='assistant']",
+    "[data-testid*='bot']",
     "[class*='assistant']",
+    "[class*='Assistant']",
+    "[class*='response']",
+    "[class*='Response']",
+    "message-content",
+    "model-response",
+    ".markdown",
+    ".prose",
     "article"
   ];
+  const promptSelectors = [
+    "[data-bifrost-prompt]",
+    "[data-message-author-role='user']",
+    "[data-testid*='user']",
+    "textarea",
+    "[contenteditable='true']",
+    "[aria-label*='prompt' i]"
+  ];
+  function textOf(el) {
+    return (el.innerText || el.textContent || "").replace(/\\s+/g, " ").trim();
+  }
   function visible(el) {
     const style = window.getComputedStyle(el);
     const rect = el.getBoundingClientRect();
-    return style.display !== "none" && style.visibility !== "hidden" && rect.width > 0 && rect.height > 0;
+    return style.display !== "none" && style.visibility !== "hidden" && rect.width > 0 && rect.height > 0 && rect.bottom > 0 && rect.top < window.innerHeight + 2400;
   }
-  let chosen = null;
+  function score(el, text, selector, index) {
+    const rect = el.getBoundingClientRect();
+    let value = Math.min(text.length, 3600);
+    if (/assistant|response|markdown|prose/i.test(selector)) value += 1200;
+    if (rect.bottom > 0) value += Math.max(0, rect.bottom);
+    return value + index;
+  }
+  function candidate(selector, el, index) {
+    const text = textOf(el);
+    if (!text || text.length < 24 || text.length > 24000 || !visible(el)) return null;
+    return { el, text, selector, score: score(el, text, selector, index) };
+  }
+  let candidates = [];
   let selector = "";
-  for (const current of selectors) {
-    const matches = Array.from(document.querySelectorAll(current)).filter(visible);
+  for (const current of assistantSelectors) {
+    const matches = Array.from(document.querySelectorAll(current))
+      .map((el, index) => candidate(current, el, index))
+      .filter(Boolean);
     if (matches.length > 0) {
-      chosen = matches[matches.length - 1];
+      candidates = matches;
       selector = current;
       break;
     }
   }
-  if (!chosen) {
+  if (candidates.length === 0) {
     const blocks = Array.from(document.querySelectorAll("main, section, div"))
       .filter(visible)
-      .map((el) => ({ el, text: (el.innerText || el.textContent || "").trim() }))
-      .filter((item) => item.text.length > 120 && item.text.length < 12000)
-      .sort((a, b) => b.text.length - a.text.length);
+      .map((el, index) => {
+        const text = textOf(el);
+        if (text.length < 80 || text.length > 16000) return null;
+        if (/sign in|cookie|privacy policy|terms of service/i.test(text.slice(0, 400))) return null;
+        return { el, text, selector: "visible-text-block", score: score(el, text, "visible-text-block", index) };
+      })
+      .filter(Boolean)
+      .sort((a, b) => b.score - a.score);
     if (blocks.length > 0) {
-      chosen = blocks[0].el;
+      candidates = blocks;
       selector = "visible-text-block";
     }
   }
-  const promptEl = document.querySelector("[data-bifrost-prompt], [data-message-author-role='user']");
+  const chosen = candidates[0];
+  let promptEl = null;
+  for (const current of promptSelectors) {
+    const matches = Array.from(document.querySelectorAll(current)).filter(visible);
+    if (matches.length > 0) {
+      promptEl = matches[matches.length - 1];
+      break;
+    }
+  }
   return {
     url: location.href,
     title: document.title || "",
-    prompt: promptEl ? (promptEl.innerText || promptEl.textContent || "").trim() : "",
-    answer: chosen ? (chosen.innerText || chosen.textContent || "").trim() : "",
-    selector
+    prompt: promptEl ? textOf(promptEl) : "",
+    answer: chosen ? chosen.text : "",
+    selector: chosen ? selector : ""
   };
 })();
 `;
@@ -70,6 +117,8 @@ function createMainWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
+      webSecurity: true,
+      allowRunningInsecureContent: false,
     },
   });
 
@@ -103,12 +152,26 @@ function ensurePageView(tabId) {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
+      webSecurity: true,
+      allowRunningInsecureContent: false,
     },
   });
   pageViews.set(tabId, view);
   view.webContents.setWindowOpenHandler(({ url }) => {
-    void view.webContents.loadURL(url).catch(() => {});
+    try {
+      void view.webContents.loadURL(validatedUrl(url)).catch(() => {});
+    } catch {
+      sendState(tabId, { loading: false, title: "Blocked unsafe navigation" });
+    }
     return { action: "deny" };
+  });
+  view.webContents.on("will-navigate", (event, url) => {
+    try {
+      validatedUrl(url);
+    } catch {
+      event.preventDefault();
+      sendState(tabId, { loading: false, title: "Blocked unsafe navigation" });
+    }
   });
   view.webContents.on("did-start-loading", () => sendState(tabId, { loading: true }));
   view.webContents.on("did-stop-loading", () => sendState(tabId, { loading: false }));
@@ -301,7 +364,17 @@ ipcMain.handle("bifrost:extract-visible-answer", async (_event, target = {}) => 
   return payload;
 });
 
-app.whenReady().then(createMainWindow);
+function configureSecurity() {
+  session.defaultSession.setPermissionRequestHandler((_webContents, _permission, callback) => {
+    callback(false);
+  });
+  session.defaultSession.setPermissionCheckHandler(() => false);
+}
+
+app.whenReady().then(() => {
+  configureSecurity();
+  createMainWindow();
+});
 
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit();

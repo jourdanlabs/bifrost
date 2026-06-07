@@ -90,8 +90,16 @@ type Receipt = {
   receipt_hash: string;
 };
 
+type PageHistoryEntry = {
+  url: string;
+  title: string;
+  last_visited: string;
+};
+
 const RECEIPT_HISTORY_KEY = "bifrost.browser.receipts.v1";
+const PAGE_HISTORY_KEY = "bifrost.browser.pages.v1";
 const MAX_RECEIPTS = 30;
+const MAX_PAGE_HISTORY = 40;
 
 const urlInput = byId<HTMLInputElement>("urlInput");
 const openButton = byId<HTMLButtonElement>("openButton");
@@ -129,9 +137,19 @@ const exportReceiptButton = byId<HTMLButtonElement>("exportReceiptButton");
 const receiptHistoryCard = byId<HTMLElement>("receiptHistoryCard");
 const receiptHistoryCount = byId<HTMLElement>("receiptHistoryCount");
 const receiptHistoryList = byId<HTMLElement>("receiptHistoryList");
+const recentPagesButton = byId<HTMLButtonElement>("recentPagesButton");
+const receiptsButton = byId<HTMLButtonElement>("receiptsButton");
+const settingsButton = byId<HTMLButtonElement>("settingsButton");
+const recentPagesCard = byId<HTMLElement>("recentPagesCard");
+const recentPagesCount = byId<HTMLElement>("recentPagesCount");
+const recentPagesList = byId<HTMLElement>("recentPagesList");
+const settingsCard = byId<HTMLElement>("settingsCard");
+const clearLocalDataButton = byId<HTMLButtonElement>("clearLocalDataButton");
+const mobileSettingsButton = byId<HTMLButtonElement>("mobileSettingsButton");
 
 let currentReceipt: Receipt | null = null;
 let receiptHistory: Receipt[] = loadReceiptHistory();
+let pageHistory: PageHistoryEntry[] = loadPageHistory();
 const tabs: BrowserTab[] = [];
 let activeTabId = "";
 
@@ -359,7 +377,7 @@ function normalizeUrl(value: string): string {
   if (!trimmed || trimmed === "bifrost://lab") return "bifrost://lab";
   if (/^https?:\/\//i.test(trimmed)) return trimmed;
   if (/^[\w.-]+\.[a-z]{2,}(\/.*)?$/i.test(trimmed)) return `https://${trimmed}`;
-  return `https://www.google.com/search?q=${encodeURIComponent(trimmed)}`;
+  return `https://duckduckgo.com/?q=${encodeURIComponent(trimmed)}`;
 }
 
 async function waitForNativeBridge(timeoutMs = 800): Promise<Window["BifrostNative"] | undefined> {
@@ -427,6 +445,11 @@ async function openUrl(value = urlInput.value, tabId = activeTabId) {
   browserFrame.removeAttribute("srcdoc");
   browserFrame.src = url;
   setStage("capture", true);
+  savePageHistory({
+    url,
+    title: tab.title,
+    last_visited: new Date().toISOString(),
+  });
   renderTabs();
   renderControls();
 }
@@ -464,6 +487,13 @@ function applyNativeState(state: NativeState | void) {
   if (typeof state.canGoForward === "boolean") tab.canGoForward = state.canGoForward;
   if (typeof state.loading === "boolean") tab.loading = state.loading;
   if (state.opened) tab.mode = "native";
+  if (isHistoryUrl(tab.url) && state.loading !== true) {
+    savePageHistory({
+      url: tab.url,
+      title: tab.title || titleForUrl(tab.url),
+      last_visited: new Date().toISOString(),
+    });
+  }
   renderTabs();
   renderControls();
 }
@@ -625,6 +655,57 @@ function loadReceiptHistory(): Receipt[] {
   }
 }
 
+function savePageHistory(entry: PageHistoryEntry) {
+  if (!isHistoryUrl(entry.url)) return;
+  pageHistory = [
+    entry,
+    ...pageHistory.filter((item) => item.url !== entry.url),
+  ].slice(0, MAX_PAGE_HISTORY);
+  localStorage.setItem(PAGE_HISTORY_KEY, JSON.stringify(pageHistory));
+  renderPageHistory();
+}
+
+function loadPageHistory(): PageHistoryEntry[] {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(PAGE_HISTORY_KEY) || "[]");
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter((item) => typeof item?.url === "string" && typeof item?.title === "string")
+      .slice(0, MAX_PAGE_HISTORY);
+  } catch {
+    return [];
+  }
+}
+
+function renderPageHistory() {
+  recentPagesCount.textContent = `${pageHistory.length} page${pageHistory.length === 1 ? "" : "s"}`;
+  recentPagesList.innerHTML = "";
+  if (pageHistory.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "recent-page-empty";
+    empty.textContent = "No recent pages yet.";
+    recentPagesList.append(empty);
+    return;
+  }
+
+  for (const page of pageHistory.slice(0, 10)) {
+    const item = document.createElement("button");
+    item.type = "button";
+    item.className = "recent-page-item";
+    item.dataset.openRecentUrl = page.url;
+    item.innerHTML = `
+      <strong>${escapeHtml(page.title || shortUrl(page.url))}</strong>
+      <span>${escapeHtml(shortUrl(page.url))}</span>
+      <span>${new Date(page.last_visited).toLocaleString()}</span>
+    `;
+    recentPagesList.append(item);
+  }
+}
+
+function isHistoryUrl(url: string) {
+  return /^https?:\/\//i.test(url);
+}
+
 function findingNode(title: string, detail: string, impact: string) {
   const node = document.createElement("div");
   node.className = "finding";
@@ -708,6 +789,25 @@ function exportReceipt(receipt = currentReceipt) {
   URL.revokeObjectURL(url);
 }
 
+function openDrawer(target?: HTMLElement) {
+  verificationShell.dataset.drawer = "expanded";
+  if (target) {
+    window.requestAnimationFrame(() => target.scrollIntoView({ block: "nearest" }));
+  }
+}
+
+function clearLocalData() {
+  currentReceipt = null;
+  receiptHistory = [];
+  pageHistory = [];
+  localStorage.removeItem(RECEIPT_HISTORY_KEY);
+  localStorage.removeItem(PAGE_HISTORY_KEY);
+  renderReceiptHistory();
+  renderPageHistory();
+  resetVerificationView();
+  openDrawer(settingsCard);
+}
+
 async function goBack() {
   const tab = activeTab();
   if (tab.mode === "native" && window.BifrostNative?.goBack) {
@@ -770,11 +870,11 @@ function wire() {
   reloadButton.addEventListener("click", () => void reloadPage());
   reloadTopButton.addEventListener("click", () => void reloadPage());
   tabsTopButton.addEventListener("click", () => {
-    verificationShell.dataset.drawer = "expanded";
+    openDrawer(document.getElementById("mobileTabCard") ?? undefined);
     renderTabs();
   });
   mobileTabsButton.addEventListener("click", () => {
-    verificationShell.dataset.drawer = "expanded";
+    openDrawer(document.getElementById("mobileTabCard") ?? undefined);
     renderTabs();
   });
   newTabButton.addEventListener("click", () => {
@@ -791,6 +891,17 @@ function wire() {
   });
   copyReceiptButton.addEventListener("click", () => void copyReceipt());
   exportReceiptButton.addEventListener("click", () => exportReceipt());
+  recentPagesButton.addEventListener("click", () => openDrawer(recentPagesCard));
+  receiptsButton.addEventListener("click", () => openDrawer(receiptHistoryCard));
+  settingsButton.addEventListener("click", () => openDrawer(settingsCard));
+  mobileSettingsButton.addEventListener("click", () => openDrawer(settingsCard));
+  clearLocalDataButton.addEventListener("click", clearLocalData);
+  recentPagesList.addEventListener("click", (event) => {
+    const target = (event.target as HTMLElement).closest<HTMLElement>("[data-open-recent-url]");
+    const url = target?.dataset.openRecentUrl;
+    if (!url) return;
+    void openUrl(url);
+  });
   receiptHistoryList.addEventListener("click", (event) => {
     const target = event.target as HTMLElement;
     const copyHash = target.getAttribute("data-copy-receipt");
@@ -822,4 +933,5 @@ function wire() {
 createTab();
 wire();
 renderReceiptHistory();
+renderPageHistory();
 void openUrl("bifrost://lab");

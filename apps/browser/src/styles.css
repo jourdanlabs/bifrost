@@ -511,6 +511,12 @@ iframe {
   margin-top: 0.55rem;
 }
 
+.recent-pages-list {
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 0.55rem;
+}
+
 .mobile-tab-list {
   display: grid;
   gap: 0.42rem;
@@ -563,37 +569,55 @@ iframe {
 }
 
 .receipt-history-empty,
-.receipt-history-item {
+.receipt-history-item,
+.recent-page-empty,
+.recent-page-item {
   padding: 0.64rem;
   border: 1px solid rgba(199, 196, 215, 0.72);
   border-radius: 12px;
   background: var(--surface-low);
 }
 
-.receipt-history-empty {
+.receipt-history-empty,
+.recent-page-empty {
   color: var(--dim);
   font-size: 0.78rem;
 }
 
-.receipt-history-item {
+.receipt-history-item,
+.recent-page-item {
   display: grid;
   gap: 0.36rem;
+  width: 100%;
+  min-height: 0;
+  color: var(--text);
+  text-align: left;
+  font-weight: 650;
+}
+
+button.recent-page-item:hover {
+  border-color: rgba(70, 72, 212, 0.28);
+  background: var(--primary-soft);
 }
 
 .receipt-history-item strong,
-.receipt-history-item span {
+.receipt-history-item span,
+.recent-page-item strong,
+.recent-page-item span {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.receipt-history-item strong {
+.receipt-history-item strong,
+.recent-page-item strong {
   color: var(--text);
   font-size: 0.78rem;
 }
 
-.receipt-history-item span {
+.receipt-history-item span,
+.recent-page-item span {
   color: var(--dim);
   font-size: 0.68rem;
 }
@@ -608,6 +632,38 @@ iframe {
   min-height: 28px;
   border-radius: 8px;
   font-size: 0.68rem;
+}
+
+.settings-list {
+  display: grid;
+  gap: 0.45rem;
+  margin: 0.62rem 0 0;
+}
+
+.settings-list div {
+  padding: 0.58rem;
+  border: 1px solid rgba(199, 196, 215, 0.72);
+  border-radius: 12px;
+  background: var(--surface-low);
+}
+
+.settings-list dt {
+  color: var(--text);
+  font-size: 0.76rem;
+  font-weight: 850;
+}
+
+.settings-list dd {
+  margin: 0.18rem 0 0;
+  color: var(--dim);
+  font-size: 0.7rem;
+  line-height: 1.35;
+}
+
+button.danger {
+  width: 100%;
+  margin-top: 0.68rem;
+  color: var(--rejected);
 }
 
 .bottom-nav {

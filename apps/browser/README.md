@@ -22,8 +22,12 @@ This package ships the web workbench for the browser app:
 - verdict panel and sealed JSON receipt
 - explicit extraction failure state for pages the web workbench cannot inspect
 - real browser navigation controls: back, forward, reload, URL normalization
+- DuckDuckGo-backed private search fallback for non-URL address bar input
 - tab state shared across desktop and mobile shells
 - local sealed receipt history with copy/export actions
+- local recent-page history with one-tap reopen
+- local-first settings surface with clear-data control
+- native browser permission requests denied by default
 - desktop browser layout with workspace sidebar, tab strip, page viewport, and
   right-side verification inspector
 
@@ -48,6 +52,9 @@ drawer. iOS currently uses one active native WKWebView while the shared UI owns
 the tab model; switching external tabs may reload that target. The desktop app
 uses one BrowserView per external tab.
 
+The iOS carrier blocks non-http/https native navigations and uses the same
+assistant-answer extraction strategy as the desktop carrier.
+
 ## Native macOS App
 
 The macOS target is an Electron browser shell at `desktop/`.
@@ -64,6 +71,10 @@ The macOS target is an Electron browser shell at `desktop/`.
   COSMIC-lite verdict -> sealed receipt
 - current external page path: ChatGPT opens inside the native BrowserView with
   `NATIVE WEBVIEW` status
+- native permission prompts are denied by default
+- unsafe non-http/https native navigations are blocked
+- extraction prefers the latest visible assistant/response block before falling
+  back to generic visible text
 
 ## Native Bridge Contract
 
