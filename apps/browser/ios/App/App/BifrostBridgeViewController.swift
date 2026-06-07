@@ -4,8 +4,8 @@ import WebKit
 
 @objc(BifrostBridgeViewController)
 class BifrostBridgeViewController: CAPBridgeViewController, WKNavigationDelegate, WKScriptMessageHandler {
-    private var targetWebView: WKWebView?
-    private var pendingOpenCallbackId: String?
+    private var targetWebViews: [String: WKWebView] = [:]
+    private var pendingOpenCallbacks: [String: String] = [:]
     private var activeTabId: String = "tab_default"
     private var lastFrame: CGRect = .zero
 
@@ -49,7 +49,9 @@ class BifrostBridgeViewController: CAPBridgeViewController, WKNavigationDelegate
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         if !lastFrame.isEmpty {
-            targetWebView?.frame = lastFrame
+            for webView in targetWebViews.values {
+                webView.frame = lastFrame
+            }
         }
     }
 
@@ -69,7 +71,7 @@ class BifrostBridgeViewController: CAPBridgeViewController, WKNavigationDelegate
         case "updateFrame":
             updateFrame(id: id, body: body)
         case "closeUrl":
-            closeUrl(id: id)
+            closeUrl(id: id, body: body)
         case "goBack":
             goBack(id: id)
         case "goForward":
@@ -98,75 +100,84 @@ class BifrostBridgeViewController: CAPBridgeViewController, WKNavigationDelegate
         let frame = frameFrom(body["frame"]) ?? defaultTargetFrame()
         lastFrame = frame
 
-        let nativeWebView = targetWebView ?? createTargetWebView(frame: frame)
+        let nativeWebView = targetWebViews[activeTabId] ?? createTargetWebView(tabId: activeTabId, frame: frame)
         nativeWebView.frame = frame
         nativeWebView.isHidden = false
+        hideTargetWebViews(except: activeTabId)
         view.bringSubviewToFront(nativeWebView)
 
-        pendingOpenCallbackId = id
-        sendState(["loading": true, "url": rawUrl, "opened": true])
+        pendingOpenCallbacks[activeTabId] = id
+        sendState(["loading": true, "url": rawUrl, "opened": true], tabId: activeTabId)
         nativeWebView.load(URLRequest(url: url))
     }
 
     private func activateTab(id: String, body: [String: Any]) {
         activeTabId = body["tabId"] as? String ?? activeTabId
         if let visible = body["visible"] as? Bool, visible == false {
-            targetWebView?.isHidden = true
-            resolve(id: id, payload: statePayload(["closed": false, "loading": false]))
-            sendState(["loading": false])
+            hideTargetWebViews(except: nil)
+            resolve(id: id, payload: statePayload(["closed": false, "loading": false], tabId: activeTabId))
+            sendState(["loading": false], tabId: activeTabId)
             return
         }
 
         if let frame = frameFrom(body["frame"]) {
             lastFrame = frame
-            targetWebView?.frame = frame
+            targetWebViews[activeTabId]?.frame = frame
         }
-        targetWebView?.isHidden = false
-        if let targetWebView {
+        hideTargetWebViews(except: activeTabId)
+        if let targetWebView = targetWebViews[activeTabId] {
+            targetWebView.isHidden = false
             view.bringSubviewToFront(targetWebView)
         }
-        resolve(id: id, payload: statePayload(["opened": true]))
-        sendState(["opened": true])
+        resolve(id: id, payload: statePayload(["opened": true], tabId: activeTabId))
+        sendState(["opened": true], tabId: activeTabId)
     }
 
     private func updateFrame(id: String, body: [String: Any]) {
         activeTabId = body["tabId"] as? String ?? activeTabId
         if let frame = frameFrom(body["frame"]) {
             lastFrame = frame
-            targetWebView?.frame = frame
+            for webView in targetWebViews.values {
+                webView.frame = frame
+            }
         }
-        resolve(id: id, payload: statePayload())
+        resolve(id: id, payload: statePayload(tabId: activeTabId))
     }
 
-    private func closeUrl(id: String) {
-        pendingOpenCallbackId = nil
-        targetWebView?.stopLoading()
-        targetWebView?.isHidden = true
-        resolve(id: id, payload: statePayload(["closed": true, "loading": false]))
-        sendState(["closed": true, "loading": false])
+    private func closeUrl(id: String, body: [String: Any]) {
+        let tabId = body["tabId"] as? String ?? activeTabId
+        pendingOpenCallbacks[tabId] = nil
+        if let targetWebView = targetWebViews[tabId] {
+            targetWebView.stopLoading()
+            targetWebView.navigationDelegate = nil
+            targetWebView.removeFromSuperview()
+            targetWebViews[tabId] = nil
+        }
+        resolve(id: id, payload: statePayload(["tabId": tabId, "closed": true, "loading": false], tabId: tabId))
+        sendState(["closed": true, "loading": false], tabId: tabId)
     }
 
     private func goBack(id: String) {
-        if targetWebView?.canGoBack == true {
-            targetWebView?.goBack()
+        if targetWebViews[activeTabId]?.canGoBack == true {
+            targetWebViews[activeTabId]?.goBack()
         }
-        resolve(id: id, payload: statePayload())
+        resolve(id: id, payload: statePayload(tabId: activeTabId))
     }
 
     private func goForward(id: String) {
-        if targetWebView?.canGoForward == true {
-            targetWebView?.goForward()
+        if targetWebViews[activeTabId]?.canGoForward == true {
+            targetWebViews[activeTabId]?.goForward()
         }
-        resolve(id: id, payload: statePayload())
+        resolve(id: id, payload: statePayload(tabId: activeTabId))
     }
 
     private func reload(id: String) {
-        targetWebView?.reload()
-        resolve(id: id, payload: statePayload(["loading": true]))
+        targetWebViews[activeTabId]?.reload()
+        resolve(id: id, payload: statePayload(["loading": true], tabId: activeTabId))
     }
 
     private func extractVisibleAnswer(id: String) {
-        guard let nativeWebView = targetWebView, !nativeWebView.isHidden else {
+        guard let nativeWebView = targetWebViews[activeTabId], !nativeWebView.isHidden else {
             reject(id: id, message: "No native page is open in BIFROST Browser.")
             return
         }
@@ -188,7 +199,7 @@ class BifrostBridgeViewController: CAPBridgeViewController, WKNavigationDelegate
         }
     }
 
-    private func createTargetWebView(frame: CGRect) -> WKWebView {
+    private func createTargetWebView(tabId: String, frame: CGRect) -> WKWebView {
         let configuration = WKWebViewConfiguration()
         configuration.websiteDataStore = .default()
         configuration.allowsInlineMediaPlayback = true
@@ -200,8 +211,20 @@ class BifrostBridgeViewController: CAPBridgeViewController, WKNavigationDelegate
         nativeWebView.backgroundColor = .white
         nativeWebView.isOpaque = true
         view.addSubview(nativeWebView)
-        targetWebView = nativeWebView
+        targetWebViews[tabId] = nativeWebView
         return nativeWebView
+    }
+
+    private func hideTargetWebViews(except visibleTabId: String?) {
+        for (tabId, webView) in targetWebViews {
+            webView.isHidden = tabId != visibleTabId
+        }
+    }
+
+    private func tabId(for webView: WKWebView) -> String? {
+        targetWebViews.first { entry in
+            entry.value === webView
+        }?.key
     }
 
     private func frameFrom(_ value: Any?) -> CGRect? {
@@ -259,34 +282,37 @@ class BifrostBridgeViewController: CAPBridgeViewController, WKNavigationDelegate
             return
         }
 
-        sendState(["loading": false, "title": "Blocked unsafe navigation"])
+        sendState(["loading": false, "title": "Blocked unsafe navigation"], tabId: tabId(for: webView) ?? activeTabId)
         decisionHandler(.cancel)
     }
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-        sendState(["loading": false, "opened": true])
-        guard let id = pendingOpenCallbackId else {
+        let tabId = tabId(for: webView) ?? activeTabId
+        sendState(["loading": false, "opened": true], tabId: tabId)
+        guard let id = pendingOpenCallbacks[tabId] else {
             return
         }
-        pendingOpenCallbackId = nil
-        resolve(id: id, payload: statePayload(["opened": true, "loading": false]))
+        pendingOpenCallbacks[tabId] = nil
+        resolve(id: id, payload: statePayload(["opened": true, "loading": false], tabId: tabId))
     }
 
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
-        sendState(["loading": false, "title": error.localizedDescription])
-        rejectPendingOpen(error)
+        let tabId = tabId(for: webView) ?? activeTabId
+        sendState(["loading": false, "title": error.localizedDescription], tabId: tabId)
+        rejectPendingOpen(error, tabId: tabId)
     }
 
     func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
-        sendState(["loading": false, "title": error.localizedDescription])
-        rejectPendingOpen(error)
+        let tabId = tabId(for: webView) ?? activeTabId
+        sendState(["loading": false, "title": error.localizedDescription], tabId: tabId)
+        rejectPendingOpen(error, tabId: tabId)
     }
 
-    private func rejectPendingOpen(_ error: Error) {
-        guard let id = pendingOpenCallbackId else {
+    private func rejectPendingOpen(_ error: Error, tabId: String) {
+        guard let id = pendingOpenCallbacks[tabId] else {
             return
         }
-        pendingOpenCallbackId = nil
+        pendingOpenCallbacks[tabId] = nil
         reject(id: id, message: "Native page load failed: \(error.localizedDescription)")
     }
 
@@ -298,9 +324,11 @@ class BifrostBridgeViewController: CAPBridgeViewController, WKNavigationDelegate
         callback(functionName: "__bifrostNativeReject", id: id, payload: ["message": message])
     }
 
-    private func statePayload(_ patch: [String: Any] = [:]) -> [String: Any] {
+    private func statePayload(_ patch: [String: Any] = [:], tabId requestedTabId: String? = nil) -> [String: Any] {
+        let tabId = requestedTabId ?? activeTabId
+        let targetWebView = targetWebViews[tabId]
         var payload: [String: Any] = [
-            "tabId": activeTabId,
+            "tabId": tabId,
             "url": targetWebView?.url?.absoluteString ?? "",
             "title": targetWebView?.title ?? "",
             "canGoBack": targetWebView?.canGoBack ?? false,
@@ -313,11 +341,11 @@ class BifrostBridgeViewController: CAPBridgeViewController, WKNavigationDelegate
         return payload
     }
 
-    private func sendState(_ patch: [String: Any] = [:]) {
+    private func sendState(_ patch: [String: Any] = [:], tabId: String? = nil) {
         guard let webView else {
             return
         }
-        let payload = statePayload(patch)
+        let payload = statePayload(patch, tabId: tabId)
         guard let data = try? JSONSerialization.data(withJSONObject: payload, options: []),
               let json = String(data: data, encoding: .utf8) else {
             return

@@ -48,9 +48,8 @@ and visible-answer extraction. When the bridge is absent, BIFROST fails closed
 instead of pretending it can read the page.
 
 Mobile uses the shared browser state and exposes tabs through the verification
-drawer. iOS currently uses one active native WKWebView while the shared UI owns
-the tab model; switching external tabs may reload that target. The desktop app
-uses one BrowserView per external tab.
+drawer. iOS preserves a native WKWebView per external tab, matching the desktop
+app's one-BrowserView-per-external-tab behavior.
 
 The iOS carrier blocks non-http/https native navigations and uses the same
 assistant-answer extraction strategy as the desktop carrier.

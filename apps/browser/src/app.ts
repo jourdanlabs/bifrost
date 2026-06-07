@@ -76,7 +76,7 @@ type BrowserTab = {
 
 type Receipt = {
   app: "BIFROST Browser";
-  version: "0.1.0";
+  version: "0.1.1";
   tab_id: string;
   captured_at: string;
   url: string;
@@ -548,7 +548,7 @@ async function verifyPage() {
     const input_hash = `sha256:${await sha256(canonical({ prompt: extraction.prompt, answer: extraction.answer }))}`;
     const receiptBase = {
       app: "BIFROST Browser" as const,
-      version: "0.1.0" as const,
+      version: "0.1.1" as const,
       tab_id: activeTabId,
       captured_at: new Date().toISOString(),
       url: extraction.url,
